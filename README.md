@@ -1,0 +1,1 @@
+Scripts to download, clean, and visualize the CA Dashboard. This project contains a shiny app and many quarto scripts to generate reports all based on the CA Dashboard and differentiated assistance eligibility.
