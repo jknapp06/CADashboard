@@ -1,0 +1,98 @@
+---
+format: 
+  docx:
+    fig-dpi: 300
+    fig-width: 7.5
+    reference-doc: da_letter_template.docx
+editor: visual
+params:
+  lea: Vallejo Charter
+  superintendent: Mrs. Lubin
+---
+
+```{r setup}
+#| include: false
+
+# Letter notifying districts and charters of DA status
+# * Priority eligibility
+# * Year eligibility
+# * Student groups and indicators
+
+# Additional letter notifying charters of exit status
+
+# Probably three templates: district DA 
+
+library(tidyverse)
+library(openxlsx)
+library(janitor)
+library(lubridate)
+library(flextable)
+
+# da_districts <- read.xlsx("data/Solano[39].xlsx", sheet = "District and COE 2024")
+# da_charters <- read.xlsx("data/Solano_charter[34].xlsx", sheet = "Charter School 2024")
+
+dashboard <- read_csv("data/solano_dashboard.csv") %>% 
+  filter(reportingyear == "2024",
+         (districtname == params$lea & rtype == "D") |
+         (schoolname == params$lea & rtype == "S"),
+         indicator_eligible == TRUE)
+
+today_date <- format(now(), "%B %e, %Y")
+
+number_to_word <- function(n) {
+  switch(n, "one student group", "two student groups", "three student groups",
+         "four student groups", "five student groups", "six student groups", 
+         "seven student groups", "eight student groups", "nine student groups",
+         "ten student groups", "eleven student groups", "twelve student groups",
+         "thirteen student groups", "fourteen student groups", "fifteen student groups")
+}
+         
+student_group_count <- 
+  dashboard %>% 
+  distinct(student_group_long) %>% 
+  nrow() %>% 
+  number_to_word()
+
+```
+
+`r today_date`
+
+RE:  2024-25 & 2025-26 Eligibility for Assistance under California’s System of Support
+
+Dear `r params$superintendent` and Governing Board Members,
+
+On November 21, the California Department of Education released the results of the 2024 California School Dashboard. In accordance with California’s System of Support (*Education Code 52071*), charter schools qualify for Differentiated Assistance (also referred to as technical assistance) based on the performance of student groups on the Dashboard. Using the eligibility criteria (Assembly Bill 130 Section 123(d)), `r params$lea` has qualified for the following student groups who received the lowest status level in two or more state priority areas.
+
+```{r da_groups}
+#| echo: false
+
+dashboard %>% 
+  select(student_group_long, priority, indicator) %>%
+  arrange(student_group_long, priority) %>% 
+  mutate(priority = case_match(priority, 
+                               4 ~ "Priority 4 – Pupil Achievement", 
+                               5 ~ "Priority 5 – Pupil Engagement", 
+                               6 ~ "Priority 6 – School Climate", 
+                               8 ~ "Priority 8 – Outcomes in a Broad Course of Study", 
+                               .default = paste(priority)), 
+         indicator = if_else(indicator == "ELA" | indicator == "ELPI" , 
+                             indicator, str_to_title(indicator))) %>% 
+  flextable() %>% 
+  set_header_labels(values = list("student_group_long" = "Student Group", 
+                                  "priority" = "Priority", 
+                                  "indicator" = "Indicator")) %>% 
+  width(width = c(2, 2.5, 1.5)) %>% 
+  merge_v() %>% 
+  theme_vanilla()
+
+```
+
+The Solano County Office of Education’s technical assistance will focus on building `r paste0(params$lea, "'s")` capacity to develop and implement actions and services responsive to their student and community needs and interests based on continuous improvement, coaching, and support. Dr. Andrea Lemos, Deputy Superintendent of Educational Services and Student Programs and Dr. Hana Suleiman, Senior Director of District and School Support from the Solano County Office of Education will be reaching out to you and your team to schedule a time for a preliminary meeting and to discuss next steps.
+
+Please feel free to contact Dr. Andrea Lemos, Deputy Superintendent of Educational Services and Student Programs at 707-399-4430 if you have any other questions related to this process.
+
+In partnership,
+
+Lisette Estrella-Henderson
+
+Solano County Superintendent of Schools

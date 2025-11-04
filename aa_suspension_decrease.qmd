@@ -1,0 +1,130 @@
+---
+title: "AA Suspension"
+format: html
+editor: visual
+---
+
+```{r setup}
+
+library(shiny)
+library(tidyverse)
+library(vroom)
+library(DT)
+library(wesanderson)
+library(plotly)
+# library(sf)
+# library(leaflet)
+
+dashboard <- vroom("data/full_dashboard.csv") 
+
+# districts_geo <- read_sf("data/solano_districts.geojson")
+# schools_geo <- read_sf("data/solano_schools.geojson") 
+
+dashboard <- 
+  dashboard %>% 
+  mutate(statuslevel = as_factor(statuslevel),
+         reportingyear = fct_relevel(as_factor(reportingyear), "2019"),
+         indicator = fct_relevel(as_factor(indicator), 
+                                 "ELA", "Math", "ELPI", 
+                                 "absenteeism", "graduation", 
+                                 "suspension", "college/career", "science"),
+         studentgroup = as_factor(studentgroup),
+         mutate(student_group_long = case_match(studentgroup,
+        "ALL" ~ "All students",
+        "AA" ~ "Black/African American",
+        "AI" ~ "American Indian or Alaska Native",
+        "AS" ~ "Asian",
+        "FI" ~ "Filipino",
+        "HI" ~ "Hispanic",
+        "PI" ~ "Pacific Islander",
+        "WH" ~ "White",
+        "MR" ~ "Multiple Races/Two or more",
+        "EL" ~ "English Learner",
+        "ELO" ~ "English Learners Only",
+        "RFP" ~ "RFEPs Only",
+        "EO" ~ "English Only",
+        "SBA" ~ "Smarter Balanced Assessment",
+        "CAA" ~ "CA Alternative Assessment",
+        "SED" ~ "Socioeconomically Disadvantaged",
+        "SWD" ~ "Students with Disabilities",
+        "FOS" ~ "Foster Youth",
+        "HOM" ~ "Homeless Youth",
+        "TOM" ~ "Multiple Races/Two or more",
+        "LTEL" ~ "Long-Term English Learner"),
+      countyname = case_match(rtype,
+         "X" ~ "CA State Aggregate",
+         .default = countyname),
+      schoolname = case_when(
+         rtype == "D" & is.na(schoolname) ~ "District Aggregate",
+         .default = schoolname)) %>% 
+      left_join(assistance, by = join_by(cds, studentgroup, reportingyear)) %>% 
+      mutate(priority_eligible = case_when(
+        (assistance == "A" & 
+           (priority == 4 | priority == 5 | priority == 6)) |
+        (assistance == "B" & 
+           (priority == 4 | priority == 5)) |
+        (assistance == "C" & 
+           (priority == 5 | priority == 6)) |
+        (assistance == "D" & 
+           (priority == 4 | priority == 6)) |
+        (assistance == "E" & 
+           (priority == 4 | priority == 8)) |
+        (assistance == "F" & 
+           (priority == 5 | priority == 8)) |
+        (assistance == "G" & 
+           (priority == 6 | priority == 8)) |
+        (assistance == "H" & 
+           (priority == 4 | priority == 5 | priority == 8)) |
+        (assistance == "I" & 
+           (priority == 4 | priority == 6 | priority == 8)) |
+        (assistance == "J" & 
+           (priority == 5 | priority == 6 | priority == 8)) |
+        (assistance == "K" & 
+           (priority == 4 | priority == 5 | priority == 6 | priority == 8)) ~ T,
+        .default = F)) %>% 
+      distinct() %>% 
+         student_group_long = fct_relevel(as_factor(student_group_long),
+                                    "All students",
+                                    "Black/African American",
+                                    "American Indian or Alaska Native",
+                                    "Asian",
+                                    "Filipino",
+                                    "Hispanic",
+                                    "Pacific Islander",
+                                    "White",
+                                    "Multiple Races/Two or more",
+                                    "Socioeconomically Disadvantaged",
+                                    "Homeless Youth",
+                                    "Students with Disabilities",
+                                    "Foster Youth",
+                                    "English Learner",
+                                    "English Learners Only",
+                                    "Long-Term English Learner",
+                                    "RFEPs Only",
+                                    "English Only",
+                                    "Smarter Balanced Assessment",
+                                    "CA Alternative Assessment"
+                                    ),
+         priority_eligible = as_factor(priority_eligible),
+         indicator_eligible = as_factor(indicator_eligible),
+         charter_flag = if_else(is.na(charter_flag), "N", charter_flag),
+         color = as_factor(color)
+         )
+
+```
+
+```{r percent_decrease}
+
+solano_sus <- 
+  dashboard %>%
+  filter(reportingyear == 2024,
+          countyname == "Solano",
+         indicator == "suspension",
+         studentgroup == "AA") %>% 
+  mutate(percent_decrease = if_else(priornumer == 0, NA, (currnumer - priornumer) / priornumer)) %>% 
+  select(reportingyear, countyname, districtname, schoolname, student_group_long,
+         indicator, currdenom, currnumer, priorstatus, priornumer, currstatus, change, percent_decrease) %>% 
+    arrange(percent_decrease)
+
+openxlsx::write.xlsx(solano_sus, "data/aa_suspension_decrease.xlsx")
+```

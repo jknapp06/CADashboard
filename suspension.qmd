@@ -1,0 +1,100 @@
+---
+title: "Suspension and College/Career"
+subtitle: "Internal Use Only"
+format:
+  docx:
+    fig-dpi: 300
+    fig-width: 7.5
+    reference-doc: scoe-are-report.docx
+editor: visual
+params:
+  lea: Vallejo City Unified
+  year: 2024
+---
+
+```{r setup}
+#| include: false
+
+library(tidyverse)
+library(flextable)
+
+dashboard <- read_csv("data/solano_dashboard.csv")
+
+# params <- rmarkdown::yaml_front_matter(rstudioapi::getSourceEditorContext()$path)$params |> lapply(x if (is.list(x)) x$value else x)
+
+```
+
+The following table lists the schools and student groups in **`r params$lea`** where the suspension rate is higher than the college/career indicator rate for the `r params$year` dashboard. For more information on how these two indicators are calculated, refer to these CDE sources: [suspension](https://www.cde.ca.gov/ta/ac/cm/dashboardsusp.asp) and [college/career](https://www.cde.ca.gov/ta/ac/cm/dashboardccr.asp).
+
+```{r suspension_vs_college}
+#| include: false
+
+sus_college <-
+  dashboard |>
+  filter(districtname == params$lea, reportingyear == params$year) |>
+  select(
+    reportingyear,
+    districtname,
+    schoolname,
+    student_group_long,
+    indicator,
+    currstatus
+  ) |>
+  filter(indicator %in% c("suspension", "college/career")) |>
+  pivot_wider(names_from = indicator, values_from = currstatus)
+
+```
+
+```{r sus_cci_table}
+#| echo: false
+
+# include all students for district
+
+sus_college |>
+  filter(
+    reportingyear == 2024,
+    suspension > `college/career` |
+      rtype == "D" & student_group_long == "All students"
+  ) |>
+  select(-reportingyear, -districtname) |>
+  mutate(
+    suspension = paste0(suspension, "%"),
+    `college/career` = paste0(`college/career`, "%")
+  ) |>
+  arrange(schoolname, student_group_long) |>
+  flextable() |>
+  merge_v(j = "schoolname") |>
+  set_header_labels(
+    schoolname = "School Name",
+    student_group_long = "Student Group",
+    `college/career` = "College/career status",
+    suspension = "Suspension status"
+  ) |>
+  width(width = c(1.8, 2, 1.2, 1.2)) |>
+  theme_vanilla()
+```
+
+```{r sus_cci_chart}
+#| include: false
+
+sus_college |>
+  filter(
+    student_group_long == "Foster Youth",
+    districtname == "State of California"
+  ) |>
+  pivot_longer(
+    cols = c("suspension", "college/career"),
+    names_to = "indicator",
+    values_to = "currstatus"
+  ) |>
+  ggplot() +
+  geom_line(aes(
+    x = reportingyear,
+    y = currstatus,
+    color = indicator,
+    group = indicator
+  )) +
+  scale_x_continuous(labels = scales::label_date()) +
+  theme_minimal()
+
+```

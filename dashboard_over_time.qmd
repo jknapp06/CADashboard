@@ -1,0 +1,256 @@
+---
+title: "DUSD Dashboard Summary"
+subtitle: "Internal Use Only"
+format:
+  pdf:
+    mainfont: Ebrima
+    fontsize: 10pt
+    keep-tex: true
+    margin-top: 0.5in
+    margin-bottom: 0.65in
+    margin-left: 0.75in
+    margin-right: 0.75in
+    fig-dpi: 300
+editor: visual
+params:
+  lea: Dixon Unified
+---
+![](www/SCOE_Logo.jpg){fig-align="right" width="127"}
+
+```{r setup}
+#| include: false
+
+library(tidyverse)
+library(flextable)
+library(ggrepel)
+library(fontawesome)
+library(ggtext)
+library(showtext)
+
+dashboard <- read_csv("data/solano_dashboard.csv") %>% 
+  filter(rtype == "D" & districtname == params$lea |
+         charter_flag == "Y" & rtype == "S" & schoolname == params$lea)
+
+status_colors <- c(
+  "lightgrey", "tomato", "orange",
+  "yellow", "mediumseagreen", "dodgerblue", "darkgrey"
+)
+
+font_add('fa-solid', 'fonts/fa-solid-900.ttf')
+
+dashboard_student_groups <- c("All students",
+                                    "American Indian or Alaska Native",
+                                    "Asian",
+                                    "Black/African American",
+                                    "Filipino",
+                                    "Hispanic",
+                                    "Pacific Islander",
+                                    "White",
+                                    "Multiple Races/Two or more",
+                                    "Socioeconomically Disadvantaged",
+                                    "Homeless Youth",
+                                    "Students with Disabilities",
+                                    "Foster Youth",
+                                    "English Learner",
+                                    "Long-Term Engligh Learner")
+
+indicator_colors = c(
+  "ELA" = "lightgreen",
+  "Math" = "mediumseagreen",
+  "ELPI" = "forestgreen",
+  "college/career" = "lightskyblue",
+  "graduation" = "dodgerblue",
+  "absenteeism" = "#7B68EE",
+  "suspension" = "#663399",
+  "science" = "darkgreen")
+
+```
+![](dashboard-cell-key-CDE-change.png){fig-align="left"}
+
+## `r params$lea` Dashboard Overview and DA Eligibility `r params$year`
+
+```{r dashboard-plot, echo = FALSE, warning=FALSE, fig.height = 4.8, fig.width = 8.2}
+
+showtext_auto()
+
+# element_markdown uses <br> for newlines
+html_wrap <- function(s, width = 17){
+    str_wrap(s, width = width) %>% 
+      str_replace_all("\n", "<br>")
+  }
+
+dashboard_filtered <- 
+  dashboard %>% 
+  filter(reportingyear == 2024,
+         student_group_long %in% dashboard_student_groups) %>% 
+  mutate(statuslevel = as_factor(statuslevel),
+         reportingyear = fct_relevel(as_factor(reportingyear), "2019"),
+         indicator = case_match(indicator,
+                                "ELA" ~ "ELA (DFS)",
+                                "Math" ~ "Math (DFS)",
+                                "college/career" ~ "college/career",
+                                .default = indicator),
+         indicator = fct_relevel(as_factor(indicator), 
+                                 "ELA (DFS)", "Math (DFS)", "ELPI", 
+                                 "absenteeism", "graduation", 
+                                 "suspension"),
+         studentgroup = as_factor(studentgroup),
+         student_group_long = fct_relevel(as_factor(student_group_long),
+                                    dashboard_student_groups),
+         student_group_wrapped = str_wrap(student_group_long, width = 17),
+         change = if_else(is.na(change), "", paste(change)),
+         color = as_factor(color),
+         change_arrow = if_else(indicator %in% c("ELA (DFS)", "Math (DFS)", "ELPI", 
+                           "graduation", "college/career"),
+                                case_match(changelevel,
+                                   0 ~ "<span style='font-family:fa-solid;'>&#xf068;</span>",
+                                   1 ~ "<span style='font-family:fa-solid;'>&#xf063;</span>",
+                                   2 ~ "<span style='font-family:fa-solid;'>&#xf078;</span>",
+                                   3 ~ "<span style='font-family:fa-solid;'>&#xf7a4;</span>",
+                                   4 ~ "<span style='font-family:fa-solid;'>&#xf077;</span>",
+                                   5 ~ "<span style='font-family:fa-solid;'>&#xf062;</span>",
+                                   .default = "<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>"),
+                                                                case_match(changelevel,
+                                   0 ~ "<span style='font-family:fa-solid;'>&#xf068;</span>",
+                                   5 ~ "<span style='font-family:fa-solid;'>&#xf063;</span>",
+                                   4 ~ "<span style='font-family:fa-solid;'>&#xf078;</span>",
+                                   3 ~ "<span style='font-family:fa-solid;'>&#xf7a4;</span>",
+                                   2 ~ "<span style='font-family:fa-solid;'>&#xf077;</span>",
+                                   1 ~ "<span style='font-family:fa-solid;'>&#xf062;</span>",
+                                   .default = "<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>"))) %>% 
+  arrange(student_group_long)
+
+group_count <-
+  dashboard_filtered %>% 
+  select(student_group_long) %>% 
+  unique() %>% 
+  nrow()
+
+da_eligible <- 
+  dashboard_filtered %>% 
+  group_by(student_group_long) %>% 
+  arrange(student_group_long) %>% 
+  summarise(group_da_eligible = sum(priority_eligible)) %>%
+  mutate(order = c(1:group_count),
+        student_group_markdown = if_else(group_da_eligible > 0,
+                      paste("<span style='color: darkred;face: bold'>",           # Group is eligible
+                            html_wrap(student_group_long, width = 17),
+                                       "</span>"),
+                      paste("<span style='color: black'>",            # group is not eligible
+                            html_wrap(student_group_long, width = 17),
+                                       "</span>")),
+         student_group_markdown = fct_reorder(student_group_markdown, 
+                                              order))
+
+dashboard_filtered %>% 
+  left_join(da_eligible, by = join_by(student_group_long)) %>% 
+  ggplot() +
+  geom_richtext(x = 0.5, y = 0.5,
+            mapping = aes(label = if_else(indicator == "ELA (DFS)" |
+                                          indicator == "Math (DFS)" |
+                                          is.na(currstatus), 
+                                          paste(currstatus, change_arrow, change),
+                                          paste0(currstatus, "% ", change_arrow, " ", change)),
+                          fill = color,
+                          color = indicator_eligible),
+            show.legend = FALSE,
+            text.color = "black",
+            label.size = 0.8,
+            size = 3.3) +
+  scale_fill_manual(values = status_colors,
+                    drop = FALSE,
+                    na.value = "white") +
+  scale_color_manual(values = c("FALSE" = NA, "TRUE" = "darkred"),
+                     na.value = "transparent") +
+  facet_grid(student_group_markdown ~ indicator, scales = "free", space = "free") +
+  theme_minimal() +
+  theme(
+    text = element_text(size = 12),
+    strip.text.x = element_text(size = 11),
+    strip.text.y = element_markdown(size = 11, angle = 0, vjust = 0.7, hjust = 0),
+    strip.clip = "off",
+    panel.spacing = unit(0, "pt")
+  )
+
+showtext_auto(FALSE)
+```
+<!-- The following table lists all student groups who are currently eligible for DA and their DA status over time. -->
+<!-- ```{r da_groups} -->
+<!-- #| echo: false -->
+
+<!-- current_da_groups <-  -->
+<!--   dashboard %>%  -->
+<!--   filter(reportingyear == 2024, -->
+<!--          indicator_eligible == TRUE) %>%  -->
+<!--   pull(student_group_long) %>%  -->
+<!--   unique() -->
+
+<!-- dashboard %>%  -->
+<!--   filter(student_group_long %in% current_da_groups) %>%  -->
+<!--   select(reportingyear, districtname, schoolname, student_group_long, indicator) %>% -->
+<!--   arrange(reportingyear) %>% -->
+<!--   pivot_wider(names_from = reportingyear, values_from = indicator, -->
+<!--               values_fn = list) %>% -->
+<!--   arrange(districtname, schoolname, student_group_long) %>% -->
+<!--   mutate(across(where(is.list), ~ map_chr(., ~ paste(., collapse = "; "))), -->
+<!--          da_years = rowSums(across(c(`2019`, `2022`, `2023`, `2024`), ~ . != ""))) %>% -->
+<!--   flextable() %>%  -->
+<!--   merge_v(j = c("districtname"), combine = T) %>%  -->
+<!--   set_header_labels(values = list("districtname" = "District", -->
+<!--                                   "student_group_long" = "Student Group", -->
+<!--                                   "da_years" = "DA Years", -->
+<!--                                   "2019" = "Eligible indicators: 2019", -->
+<!--                                   "2022" = "Eligible indicators: 2022", -->
+<!--                                   "2023" = "Eligible indicators: 2023", -->
+<!--                                   "2024" = "Eligible indicators: 2024")) %>%  -->
+<!--   width(width = 1.3) %>%  -->
+<!--   theme_vanilla() -->
+
+<!-- ``` -->
+
+```{r student_groups}
+#| echo: false
+#| warning: false
+#| results: asis
+
+for(group in dashboard_student_groups){
+  
+  academic <- 
+    dashboard %>% 
+    filter(student_group_long == group) %>% 
+    filter(!(indicator %in% c("absenteeism", "graduation", "suspension", "college/career"))) %>% 
+    ggplot(aes(x = reportingyear, y = currstatus, group = indicator, color = indicator)) +
+    geom_line(linewidth = 1.2) +
+    geom_point(size = 2) +
+    geom_text_repel(aes(label = currstatus), color = "black")+
+    scale_color_manual(values = indicator_colors) +
+    labs(title = paste("Status of academic indicators over time for the", group, "\nstudent group in", params$lea),
+         x = "Year",
+         y = "Status (Distance from Standard)",
+         color = "Indicator") +
+    theme_minimal()
+  
+  nonacademic <- 
+    dashboard %>% 
+    filter(student_group_long == group) %>% 
+    filter(indicator %in% c("absenteeism", "graduation", "suspension", "college/career")) %>% 
+    ggplot(aes(x = reportingyear, y = currstatus/100, group = indicator, color = indicator)) +
+    geom_line(linewidth = 1.2) +
+    geom_point(size = 2) +
+    geom_text_repel(aes(label = paste0(currstatus,"%")), color = "black")+
+    scale_y_continuous(labels = scales::label_percent()) +
+    scale_color_manual(values = indicator_colors) +
+    labs(title = paste("Status of non-academic indicators over time for the", group, "\nstudent group in", params$lea),
+         x = "Year",
+         y = "Status (Percent)",
+         color = "Indicator") +
+    theme_minimal()
+  
+  print(academic)
+  print(nonacademic)
+  cat("\n\n")
+}
+
+```
+
+Report prepared by Solano County Office of Education Assessment Research and Evaluation team. Email Dr. Tacey Rodgers trodgers\@solanocoe.net and Joseph Knapp jknapp\@solanocoe.net with any questions.

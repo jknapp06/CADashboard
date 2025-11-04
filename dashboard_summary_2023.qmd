@@ -1,0 +1,860 @@
+---
+title: "Solano County Dashboard Summary"
+subtitle: "2024"
+author: SCOE Assessment Research and Evaluation
+format:
+  pptx:
+    reference-doc: template.pptx
+editor: visual
+---
+
+```{r setup, include = FALSE}
+library(tidyverse)
+library(flextable)
+library(leaflet)
+library(sf)
+library(webshot)
+library(officer)
+
+# webshot::install_phantomjs()
+
+dashboard <- read_csv("data/solano_dashboard.csv") %>% 
+  filter(countyname == "Solano",
+         reportingyear == 2024) %>% 
+  mutate(color = as_factor(color),
+         color = fct_relevel(color, "0","1", "2", "3", "4", "5"),
+         indicator_color = case_when(
+          rtype == "S" & color == 0 ~ "#D3D3D3",
+          rtype == "S" & color == 1 ~ "#FF6347",
+          rtype == "S" & color == 2 ~ "#FFA500",
+          rtype == "S" & color == 3 ~ "#FFFF00",
+          rtype == "S" & color == 4 ~ "#3CB371",
+          rtype == "S" & color == 5 ~ "#1E90FF",
+          rtype == "D" & color == 1 ~ "#CD5C5C",
+          rtype == "D" & color == 2 ~ "#FFAF70",
+          rtype == "D" & color == 3 ~ "#FFFACD",
+          rtype == "D" & color == 4 ~ "#90EE90",
+          rtype == "D" & color == 5 ~ "#87CEFA",
+                           .default = "#737373"))
+
+district_geo <- read_sf("data/California_School_District_Areas_2022-23.geojson")
+school_geo <- read_sf("data/California_Schools_2022-23.geojson")
+
+district_geo <- 
+  district_geo %>% 
+  filter(CountyName == "Solano") %>% 
+  rename_with(str_to_lower) %>% 
+  rename(cds = cdscode) %>% 
+  mutate(center_point =  st_centroid(geometry),
+         lng = st_coordinates(center_point)[,1],
+         lat = st_coordinates(center_point)[,2])
+
+school_geo <-
+  school_geo %>%
+  filter(CountyName == "Solano") %>%
+  rename_with(str_to_lower)%>% 
+  rename(cds = cdscode)
+
+race_ethnicity_groups = c("Black/African American", "All students", "Filipino", "Hispanic", "Multiple Races/Two or more", "White", "American Indian or Alaska Native", "Asian", "Pacific Islander")
+
+student_program_groups = c("All students", "English Learner", "Foster Youth",
+                           "Homeless Youth", "Long-Term English Learner", 
+                           "Socioeconomically Disadvantaged", "Students with Disabilities")   
+
+```
+
+# Solano County Dashboard Overview
+
+## Dashboard Colors
+
+![CA Dashboard Performance Colors](CDE%20Colors.png){fig-align="center"}
+
+## Counts of Indicator Colors in Solano County Districts
+
+```{r}
+#| label: district_table 
+#| include: FALSE 
+
+dashboard %>% 
+  filter(rtype == "D", 
+         color != 0, 
+         indicator != "science") %>% 
+  group_by(districtname) %>% 
+  count(color) %>% 
+  pivot_wider(names_from = color, values_from = n, values_fill = 0 ) %>% 
+  flextable() %>%  
+  fontsize(size = 8, part = "all") %>%
+  width(width = c(1.8, 0.8, 0.6, 0.6, 0.6, 0.8)) %>%
+  add_header_row(colwidths = c(1, 5),
+                 values = c("","Performance Colors")) %>%
+  align(align = "center", part = "header", i = 1) %>%
+  bg(bg = "tomato", part = "body", j = "1") %>%
+  bg(bg = "tomato", part = "header", j = "1", i = 2) %>%
+  bg(bg = "orange", part = "all", j = "2") %>%
+  bg(bg = "yellow", part = "all", j = "3") %>%
+  bg(bg = "mediumseagreen", part = "all", j = "4") %>%
+  bg(bg = "dodgerblue", part = "all", j = "5") %>%
+  set_header_labels(districtname = "District", 
+                    '1' = "Red (lowest performance)",
+                    '2' = "Orange",
+                    '3' = "Yellow",
+                    '4' = "Green",
+                    '5' = "Blue (highest performance)") %>% 
+  save_as_image("img/district_table.png")
+
+```
+
+![](img/district_table.png){fig-align="right"}
+
+## Counts of Indicator Colors in Solano County Charter Schools
+
+```{r}
+#| label: charter_table
+#| include: FALSE
+
+dashboard %>% 
+  filter(rtype == "S",
+         charter_flag == "Y",
+         color != 0,
+         indicator != "science") %>% 
+  group_by(schoolname) %>% 
+  count(color) %>% 
+  pivot_wider(names_from = color, values_from = n, values_fill = 0 ) %>%
+  relocate(schoolname, '1') %>% 
+  flextable() %>% 
+  fontsize(size = 8, part = "all") %>%
+  width(width = c(1.8, 0.8, 0.6, 0.6, 0.6, 0.8)) %>%
+  add_header_row(colwidths = c(1, 5), 
+                   values = c("", "Performance Colors")) %>% 
+  align(align = "center", part = "header", i = 1) %>% 
+  bg(bg = "tomato", part = "body", j = "1") %>% 
+  bg(bg = "tomato", part = "header", j = "1", i = 2) %>% 
+  bg(bg = "orange", part = "all", j = "2") %>% 
+  bg(bg = "yellow", part = "all", j = "3") %>% 
+  bg(bg = "mediumseagreen", part = "all", j = "4") %>% 
+  bg(bg = "dodgerblue", part = "all", j = "5") %>% 
+  set_header_labels(schoolname = "Charter School", 
+                    '1' = "Red (lowest performance)",
+                    '2' = "Orange",
+                    '3' = "Yellow",
+                    '4' = "Green",
+                    '5' = "Blue (highest performance)") %>% 
+  save_as_image("img/charter_table.png")
+```
+
+![](img/charter_table.png){fig-align="center"}
+
+## Counts of Indicator Colors in Solano County Student Groups: Race/Ethnicity
+
+```{r}
+#| label: race_ethnicity_table
+#| include: FALSE
+
+dashboard %>% 
+  filter(rtype == "D" | (charter_flag == 'Y' & rtype == "S"),
+         color != 0,
+         indicator != "science",
+         student_group_long %in% race_ethnicity_groups) %>% 
+  group_by(student_group_long) %>% 
+  count(color) %>% 
+  pivot_wider(names_from = color, values_from = n, values_fill = 0 ) %>% 
+  flextable() %>% 
+  fontsize(size = 8, part = "all") %>%
+  width(width = c(1.8, 0.8, 0.6, 0.6, 0.6, 0.8)) %>%
+  add_header_row(colwidths = c(1, 5), 
+                   values = c("", "Performance Colors")) %>% 
+  align(align = "center", part = "header", i = 1) %>% 
+  bg(bg = "tomato", part = "body", j = "1") %>% 
+  bg(bg = "tomato", part = "header", j = "1", i = 2) %>% 
+  bg(bg = "orange", part = "all", j = "2") %>% 
+  bg(bg = "yellow", part = "all", j = "3") %>% 
+  bg(bg = "mediumseagreen", part = "all", j = "4") %>% 
+  bg(bg = "dodgerblue", part = "all", j = "5") %>% 
+  set_header_labels(student_group_long = "Student Group", 
+                    '1' = "Red (lowest performance)",
+                    '2' = "Orange",
+                    '3' = "Yellow",
+                    '4' = "Green",
+                    '5' = "Blue (highest performance)")
+```
+
+## Counts of Indicator Colors in Solano County Student Groups: Student Programs
+
+```{r}
+#| label: program_table
+#| echo: FALSE
+
+dashboard %>% 
+  filter(rtype == "D" | (charter_flag == 'Y' & rtype == "S"),
+         color != 0,
+         indicator != "science",
+         student_group_long %in% student_program_groups) %>% 
+  group_by(student_group_long) %>% 
+  count(color) %>% 
+  pivot_wider(names_from = color, values_from = n, values_fill = 0 ) %>% 
+  flextable() %>% 
+  fontsize(size = 8, part = "all") %>%
+  width(width = c(1.8, 0.8, 0.6, 0.6, 0.6, 0.8)) %>%
+  add_header_row(colwidths = c(1, 5), 
+                   values = c("", "Performance Colors")) %>% 
+  align(align = "center", part = "header", i = 1) %>% 
+  bg(bg = "tomato", part = "body", j = "1") %>% 
+  bg(bg = "tomato", part = "header", j = "1", i = 2) %>% 
+  bg(bg = "orange", part = "all", j = "2") %>% 
+  bg(bg = "yellow", part = "all", j = "3") %>% 
+  bg(bg = "mediumseagreen", part = "all", j = "4") %>% 
+  bg(bg = "dodgerblue", part = "all", j = "5") %>% 
+  set_header_labels(student_group_long = "Student Group", 
+                    '1' = "Red (lowest performance)",
+                    '2' = "Orange",
+                    '3' = "Yellow",
+                    '4' = "Green",
+                    '5' = "Blue (highest performance)")
+```
+
+## Counts of Indicator Colors in Solano County Student Groups: Race/Ethnicity
+
+```{r}
+#| label: race_ethnicity_chart
+#| echo: FALSE
+
+status_colors <- c(
+"tomato", "orange",
+  "yellow", "mediumseagreen", "dodgerblue"
+)
+
+dashboard %>% 
+  filter(rtype == "D" | (charter_flag == 'Y' & rtype == "S"),
+         color != 0,
+         indicator != "science",
+         student_group_long %in% race_ethnicity_groups) %>%
+  mutate(color_word = case_match(color,
+                            "1" ~ "Red",
+                            "2" ~ "Orange",
+                            "3" ~ "Yellow",
+                            "4" ~ "Green",
+                            "5" ~ "Blue",
+                            .default = "")) %>% 
+  mutate(color_word = fct_relevel(as_factor(color_word), "Red", "Orange", 
+                                            "Yellow", "Green", "Blue")) %>% 
+  group_by(student_group_long) %>% 
+  count(color_word) %>% 
+  ggplot(mapping = aes(x = color_word, y = n, fill = color_word))+
+  geom_col() +
+  geom_text(aes(y = (n/2)+2.5, label = n)) +
+  facet_wrap(~ student_group_long) +
+  scale_fill_manual(values = status_colors, guide = "none") +
+  labs(x = "Performance Color", y = "Counts of Indicators",
+       title = "Count of performance colors assigned to each student race/ethnicity group\nfor all indicators in Solano County LEAs") +
+  theme_minimal() +
+  theme(
+    title = element_text(size = 12, hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+  
+
+```
+
+## Counts of Indicator Colors in Solano County Student Groups: Student Program
+
+```{r}
+#| label: program_chart
+#| echo: FALSE
+
+status_colors <- c(
+"tomato", "orange",
+  "yellow", "mediumseagreen", "dodgerblue"
+)
+
+dashboard %>% 
+  filter(rtype == "D" | (charter_flag == 'Y' & rtype == "S"),
+         color != 0,
+         indicator != "science",
+         student_group_long %in% student_program_groups) %>%
+  mutate(color_word = case_match(color,
+                            "1" ~ "Red",
+                            "2" ~ "Orange",
+                            "3" ~ "Yellow",
+                            "4" ~ "Green",
+                            "5" ~ "Blue",
+                            .default = "")) %>% 
+  mutate(color_word = fct_relevel(as_factor(color_word), "Red", "Orange", 
+                                            "Yellow", "Green", "Blue")) %>% 
+  group_by(student_group_long) %>% 
+  count(color_word) %>% 
+  ggplot(mapping = aes(x = color_word, y = n, fill = color_word))+
+  geom_col() +
+  geom_text(aes(y = (n/2)+2.5, label = n)) +
+  facet_wrap(~ student_group_long) +
+  scale_fill_manual(values = status_colors, guide = "none") +
+  labs(x = "Performance Color", y = "Counts of Indicators",
+       title = "Count of performance colors assigned to each student program groups \nfor all indicators in Solano County LEAs") +
+  theme_minimal() +
+  theme(
+    title = element_text(size = 12, hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+  
+
+```
+
+## Solano County Student Groups: ELA
+
+```{r}
+#| label: group_chart_ela
+#| echo: FALSE
+
+
+dashboard %>% 
+  filter(rtype == "D" | (charter_flag == 'Y' & rtype == "S"),
+         color != 0,
+         indicator == "ELA") %>%
+  mutate(color_word = case_match(color,
+                            "1" ~ "Red",
+                            "2" ~ "Orange",
+                            "3" ~ "Yellow",
+                            "4" ~ "Green",
+                            "5" ~ "Blue",
+                            .default = "")) %>% 
+  mutate(color_word = fct_relevel(as_factor(color_word), "Red", "Orange", 
+                                            "Yellow", "Green", "Blue")) %>% 
+  group_by(student_group_long) %>% 
+  count(color_word) %>% 
+  ggplot(mapping = aes(x = color_word, y = n, fill = color_word))+
+  geom_col() +
+  geom_text(aes(y = (n/2)+0.5, label = n)) +
+  facet_wrap(~ student_group_long) +
+  scale_fill_manual(values = status_colors, guide = "none") +
+  scale_y_continuous(labels = scales::label_number(accuracy = 1)) +
+  labs(x = "Performance Color", y = "Indicators",
+       title = "Count of performance colors assigned to each student group \nfor ELA in Solano County LEAs") +
+  theme_minimal() +
+  theme(
+    title = element_text(size = 12, hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+## Solano County Student Groups: Math
+
+```{r}
+#| label: group_chart_math
+#| echo: FALSE
+
+
+dashboard %>% 
+  filter(rtype == "D" | (charter_flag == 'Y' & rtype == "S"),
+         color != 0,
+         indicator == "Math") %>%
+  mutate(color_word = case_match(color,
+                            "1" ~ "Red",
+                            "2" ~ "Orange",
+                            "3" ~ "Yellow",
+                            "4" ~ "Green",
+                            "5" ~ "Blue",
+                            .default = "")) %>% 
+  mutate(color_word = fct_relevel(as_factor(color_word), "Red", "Orange", 
+                                            "Yellow", "Green", "Blue")) %>% 
+  group_by(student_group_long) %>% 
+  count(color_word) %>% 
+  ggplot(mapping = aes(x = color_word, y = n, fill = color_word))+
+  geom_col() +
+  geom_text(aes(y = (n/2)+0.5, label = n)) +
+  facet_wrap(~ student_group_long) +
+  scale_fill_manual(values = status_colors, guide = "none") +
+  scale_y_continuous(labels = scales::label_number(accuracy = 1)) +
+  labs(x = "Performance Color", y = "Indicators",
+       title = "Count of performance colors assigned to each student group \nfor Math in Solano County LEAs") +
+  theme_minimal() +
+  theme(
+    title = element_text(size = 12, hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+## Solano County Student Groups: Chronic Absenteeism
+
+```{r}
+#| label: group_chart_absenteeism
+#| echo: FALSE
+
+
+dashboard %>% 
+  filter(rtype == "D" | (charter_flag == 'Y' & rtype == "S"),
+         color != 0,
+         indicator == "absenteeism") %>%
+  mutate(color_word = case_match(color,
+                            "1" ~ "Red",
+                            "2" ~ "Orange",
+                            "3" ~ "Yellow",
+                            "4" ~ "Green",
+                            "5" ~ "Blue",
+                            .default = "")) %>% 
+  mutate(color_word = fct_relevel(as_factor(color_word), "Red", "Orange", 
+                                            "Yellow", "Green", "Blue")) %>% 
+  group_by(student_group_long) %>% 
+  count(color_word) %>% 
+  ggplot(mapping = aes(x = color_word, y = n, fill = color_word))+
+  geom_col() +
+  geom_text(aes(y = (n/2)+0.5, label = n)) +
+  facet_wrap(~ student_group_long) +
+  scale_fill_manual(values = status_colors, guide = "none") +
+  scale_y_continuous(labels = scales::label_number(accuracy = 1)) +
+  labs(x = "Performance Color", y = "Indicators",
+       title = "Count of performance colors assigned to each student group \nfor chronic absenteeism in Solano County LEAs") +
+  theme_minimal() +
+  theme(
+    title = element_text(size = 12, hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+## Solano County Student Groups: Graduation
+
+```{r}
+#| label: group_chart_graduation
+#| echo: FALSE
+
+
+dashboard %>% 
+  filter(rtype == "D" | (charter_flag == 'Y' & rtype == "S"),
+         color != 0,
+         indicator == "graduation") %>%
+  mutate(color_word = case_match(color,
+                            "1" ~ "Red",
+                            "2" ~ "Orange",
+                            "3" ~ "Yellow",
+                            "4" ~ "Green",
+                            "5" ~ "Blue",
+                            .default = "")) %>% 
+  mutate(color_word = fct_relevel(as_factor(color_word), "Red", "Orange", 
+                                            "Yellow", "Green", "Blue")) %>% 
+  group_by(student_group_long) %>% 
+  count(color_word) %>% 
+  ggplot(mapping = aes(x = color_word, y = n, fill = color_word))+
+  geom_col() +
+  geom_text(aes(y = (n/2)+0.5, label = n)) +
+  facet_wrap(~ student_group_long) +
+  scale_fill_manual(values = status_colors, guide = "none") +
+  scale_y_continuous(labels = scales::label_number(accuracy = 1)) +
+  labs(x = "Performance Color", y = "Indicators",
+       title = "Count of performance colors assigned to each student group \nfor graduation in Solano County LEAs") +
+  theme_minimal() +
+  theme(
+    title = element_text(size = 12, hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+## Solano County Student Groups: Suspension
+
+```{r}
+#| label: group_chart_suspension
+#| echo: FALSE
+
+
+dashboard %>% 
+  filter(rtype == "D" | (charter_flag == 'Y' & rtype == "S"),
+         color != 0,
+         indicator == "suspension") %>%
+  mutate(color_word = case_match(color,
+                            "1" ~ "Red",
+                            "2" ~ "Orange",
+                            "3" ~ "Yellow",
+                            "4" ~ "Green",
+                            "5" ~ "Blue",
+                            .default = "")) %>% 
+  mutate(color_word = fct_relevel(as_factor(color_word), "Red", "Orange", 
+                                            "Yellow", "Green", "Blue")) %>% 
+  group_by(student_group_long) %>% 
+  count(color_word) %>% 
+  ggplot(mapping = aes(x = color_word, y = n, fill = color_word))+
+  geom_col() +
+  geom_text(aes(y = (n/2)+0.5, label = n)) +
+  facet_wrap(~ student_group_long) +
+  scale_fill_manual(values = status_colors, guide = "none") +
+  scale_y_continuous(labels = scales::label_number(accuracy = 1)) +
+  labs(x = "Performance Color", y = "Indicators",
+       title = "Count of performance colors assigned to each student group \nfor suspension in Solano County LEAs") +
+  theme_minimal() +
+  theme(
+    title = element_text(size = 12, hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+## Solano County Student Groups: College/Career
+
+```{r}
+#| label: group_chart_college/career
+#| echo: FALSE
+
+
+dashboard %>% 
+  filter(rtype == "D" | (charter_flag == 'Y' & rtype == "S"),
+         color != 0,
+         indicator == "college/career") %>%
+  mutate(color_word = case_match(color,
+                            "1" ~ "Red",
+                            "2" ~ "Orange",
+                            "3" ~ "Yellow",
+                            "4" ~ "Green",
+                            "5" ~ "Blue",
+                            .default = "")) %>% 
+  mutate(color_word = fct_relevel(as_factor(color_word), "Red", "Orange", 
+                                            "Yellow", "Green", "Blue")) %>% 
+  group_by(student_group_long) %>% 
+  count(color_word) %>% 
+  ggplot(mapping = aes(x = color_word, y = n, fill = color_word))+
+  geom_col() +
+  geom_text(aes(y = (n/2)+0.5, label = n)) +
+  facet_wrap(~ student_group_long) +
+  scale_fill_manual(values = status_colors, guide = "none") +
+  scale_y_continuous(labels = scales::label_number(accuracy = 1)) +
+  labs(x = "Performance Level", y = "Indicators",
+       title = "Count of performance levels assigned to each student group \nfor college/career in Solano County LEAs") +
+  theme_minimal() +
+  theme(
+    title = element_text(size = 12, hjust = 0.5)
+  )
+```
+
+## Academic Performance by District
+
+```{r}
+#| label: academic_table
+#| include: FALSE
+
+dashboard %>% 
+  filter(rtype == "D",
+         color %in% c(1, 2, 3, 4, 5),
+         priority == 4) %>% 
+  group_by(districtname) %>% 
+  count(color) %>% 
+  pivot_wider(names_from = color, values_from = n, values_fill = 0) %>% 
+  mutate("5" = 0) %>%
+  relocate(districtname, '1') %>% 
+  flextable() %>%  
+  fontsize(size = 8, part = "all") %>%
+  width(width = c(1.8, 0.8, 0.6, 0.6, 0.6, 0.8)) %>%
+  add_header_row(colwidths = c(1, 5),
+                   values = c("", "Performance Colors")) %>%
+  align(align = "center", part = "header", i = 1) %>%
+  bg(bg = "tomato", part = "body", j = "1") %>%
+  bg(bg = "tomato", part = "header", j = "1", i = 2) %>%
+  bg(bg = "orange", part = "all", j = "2") %>%
+  bg(bg = "yellow", part = "all", j = "3") %>%
+  bg(bg = "mediumseagreen", part = "all", j = "4") %>%
+  bg(bg = "dodgerblue", part = "all", j = "5") %>%
+  set_header_labels(districtname = "District", 
+                    '1' = "Red (lowest performance)",
+                    '2' = "Orange",
+                    '3' = "Yellow",
+                    '4' = "Green",
+                    '5' = "Blue (highest performance)")
+```
+
+## County Wide ELA Performance (All students)
+
+```{r}
+#| label: ela_map
+#| echo: FALSE
+#| column: screen
+
+academic_districts <- 
+  dashboard %>% 
+  filter(rtype == "D",
+         student_group_long == "All students",
+         indicator == "ELA") %>%
+  left_join(district_geo, by = join_by(cds, districtname, countyname)) %>% 
+  st_as_sf()
+
+academic_schools <- 
+  dashboard %>% 
+  filter(rtype == "S",
+         student_group_long == "All students",
+         indicator == "ELA") %>%
+  left_join(school_geo, by = join_by(cds, districtname, countyname, schoolname)) %>% 
+  st_as_sf()
+
+leaflet() %>% 
+        addTiles() %>% 
+        addPolygons(data = academic_districts,
+                    fillOpacity = 0.6,
+                    color = "#999999",
+                    weight = 2,
+                    fillColor = ~indicator_color) %>%
+        # addLabelOnlyMarkers(data = districts_with_colors(),
+        #                     lng = ~lng,
+        #                     lat = ~lat,
+        #                     label = ~districtname,
+        #                 labelOptions = labelOptions(permanent = T)) %>% 
+        addCircleMarkers(data = academic_schools,
+                         label = ~schoolname,
+                         radius = 6,
+                         stroke = FALSE,
+                         fillOpacity = 1,
+                         color = ~indicator_color)
+
+
+```
+
+## County Wide Math Performance (All students)
+
+```{r}
+#| label: math_map
+#| echo: FALSE
+#| column: screen
+
+academic_districts <- 
+  dashboard %>% 
+  filter(rtype == "D",
+         student_group_long == "All students",
+         indicator == "Math") %>%
+  left_join(district_geo, by = join_by(cds, districtname, countyname)) %>% 
+  st_as_sf()
+
+academic_schools <- 
+  dashboard %>% 
+  filter(rtype == "S",
+         student_group_long == "All students",
+         indicator == "Math") %>%
+  left_join(school_geo, by = join_by(cds, districtname, countyname, schoolname)) %>% 
+  st_as_sf()
+
+leaflet() %>% 
+        addTiles() %>% 
+        addPolygons(data = academic_districts,
+                    fillOpacity = 0.6,
+                    color = "#999999",
+                    weight = 2,
+                    fillColor = ~indicator_color) %>%
+        # addLabelOnlyMarkers(data = districts_with_colors(),
+        #                     lng = ~lng,
+        #                     lat = ~lat,
+        #                     label = ~districtname,
+        #                 labelOptions = labelOptions(permanent = T)) %>% 
+        addCircleMarkers(data = academic_schools,
+                         label = ~schoolname,
+                         radius = 6,
+                         stroke = FALSE,
+                         fillOpacity = 1,
+                         color = ~indicator_color)
+
+
+```
+
+## County Wide Chronic Absenteeism (All students)
+
+```{r}
+#| label: absent_map
+#| echo: FALSE
+#| column: screen
+
+academic_districts <- 
+  dashboard %>% 
+  filter(rtype == "D",
+         student_group_long == "All students",
+         indicator == "absenteeism") %>%
+  left_join(district_geo, by = join_by(cds, districtname, countyname)) %>% 
+  st_as_sf()
+
+academic_schools <- 
+  dashboard %>% 
+  filter(rtype == "S",
+         student_group_long == "All students",
+         indicator == "absenteeism") %>%
+  left_join(school_geo, by = join_by(cds, districtname, countyname, schoolname)) %>% 
+  st_as_sf()
+
+leaflet() %>% 
+        addTiles() %>% 
+        addPolygons(data = academic_districts,
+                    fillOpacity = 0.6,
+                    color = "#999999",
+                    weight = 2,
+                    fillColor = ~indicator_color) %>%
+        addCircleMarkers(data = academic_schools,
+                         label = ~schoolname,
+                         radius = 6,
+                         stroke = FALSE,
+                         fillOpacity = 1,
+                         color = ~indicator_color)
+
+
+```
+
+## County Wide Suspension (All students)
+
+```{r}
+#| label: suspension_map
+#| echo: FALSE
+#| column: screen
+
+academic_districts <- 
+  dashboard %>% 
+  filter(rtype == "D",
+         student_group_long == "All students",
+         indicator == "suspension") %>%
+  left_join(district_geo, by = join_by(cds, districtname, countyname)) %>% 
+  st_as_sf()
+
+academic_schools <- 
+  dashboard %>% 
+  filter(rtype == "S",
+         student_group_long == "All students",
+         indicator == "suspension") %>%
+  left_join(school_geo, by = join_by(cds, districtname, countyname, schoolname)) %>% 
+  st_as_sf()
+
+leaflet() %>% 
+        addTiles() %>% 
+        addPolygons(data = academic_districts,
+                    fillOpacity = 0.6,
+                    color = "#999999",
+                    weight = 2,
+                    fillColor = ~indicator_color) %>%
+        addCircleMarkers(data = academic_schools,
+                         label = ~schoolname,
+                         radius = 6,
+                         stroke = FALSE,
+                         fillOpacity = 1,
+                         color = ~indicator_color)
+
+
+```
+
+## Academic Performance by Student Group
+
+```{r}
+#| label: academic_table_groups
+#| echo: FALSE
+
+dashboard %>% 
+  filter(rtype == "D" | (charter_flag == 'Y' & rtype == "S"),
+         color %in% c(1, 2, 3, 4, 5),
+         priority == 4) %>% 
+  group_by(student_group_long) %>%
+  count(color) %>%
+  pivot_wider(names_from = color, values_from = n, values_fill = 0) %>%
+  # mutate("5" = 0) %>% # This is only here b/c there are no 5's for academic. Try to remove.
+  relocate(student_group_long, '1') %>%
+  flextable() %>%  
+  fontsize(size = 8, part = "all") %>%
+  width(width = c(1.8, 0.8, 0.6, 0.6, 0.6, 0.8)) %>%
+  add_header_row(colwidths = c(1, 5),
+                   values = c("", "Performance Colors")) %>%
+  align(align = "center", part = "header", i = 1) %>%
+  bg(bg = "tomato", part = "body", j = "1") %>%
+  bg(bg = "tomato", part = "header", j = "1", i = 2) %>%
+  bg(bg = "orange", part = "all", j = "2") %>%
+  bg(bg = "yellow", part = "all", j = "3") %>%
+  bg(bg = "mediumseagreen", part = "all", j = "4") %>%
+  bg(bg = "dodgerblue", part = "all", j = "5") %>%
+  set_header_labels(student_group_long = "Student Group", 
+                    '1' = "Red (lowest performance)",
+                    '2' = "Orange",
+                    '3' = "Yellow",
+                    '4' = "Green",
+                    '5' = "Blue (highest performance)")
+```
+
+## Dashboard Performance for Students Experiencing Homelessness
+
+```{r}
+#| label: homeless_table
+#| include: FALSE
+
+dashboard %>% 
+  filter(rtype == "D",
+         student_group_long == "Homeless Youth",
+         color %in% c(1, 2, 3, 4, 5)) %>% 
+  group_by(districtname) %>%
+  count(color) %>%
+  pivot_wider(names_from = color, values_from = n, values_fill = 0) %>%
+  mutate("5" = 0) %>% # This is only here b/c there are no 5's for homeless youth. Try to remove.
+  relocate(districtname, '1') %>%
+  flextable() %>%  
+  fontsize(size = 8, part = "all") %>%
+  width(width = c(1.8, 0.8, 0.6, 0.6, 0.6, 0.8)) %>%
+  add_header_row(colwidths = c(1, 5),
+                   values = c("", "Performance Colors")) %>%
+  align(align = "center", part = "header", i = 1) %>%
+  bg(bg = "tomato", part = "body", j = "1") %>%
+  bg(bg = "tomato", part = "header", j = "1", i = 2) %>%
+  bg(bg = "orange", part = "all", j = "2") %>%
+  bg(bg = "yellow", part = "all", j = "3") %>%
+  bg(bg = "mediumseagreen", part = "all", j = "4") %>%
+  bg(bg = "dodgerblue", part = "all", j = "5") %>%
+  set_header_labels(districtname = "District", 
+                    '1' = "Red (lowest performance)",
+                    '2' = "Orange",
+                    '3' = "Yellow",
+                    '4' = "Green",
+                    '5' = "Blue (highest performance)")
+```
+
+## Dashboard Performance for Students Experiencing Homelessness
+
+```{r}
+#| label: homeless_table_indicators
+#| include: FALSE
+
+dashboard %>% 
+  filter(rtype == "D" | (charter_flag == 'Y' & rtype == "S"),
+         student_group_long == "Homeless Youth",
+         color %in% c(1, 2, 3, 4, 5)) %>% 
+  group_by(indicator) %>%
+  count(color) %>%
+  pivot_wider(names_from = color, values_from = n, values_fill = 0) %>%
+  mutate("5" = 0) %>% # This is only here b/c there are no 5's for homeless youth. Try to remove.
+  relocate(indicator, '1') %>%
+  flextable() %>%  
+  fontsize(size = 8, part = "all") %>%
+  width(width = c(1.8, 0.8, 0.6, 0.6, 0.6, 0.8)) %>%
+  add_header_row(colwidths = c(1, 5),
+                   values = c("", "Performance Colors")) %>%
+  align(align = "center", part = "header", i = 1) %>%
+  bg(bg = "tomato", part = "body", j = "1") %>%
+  bg(bg = "tomato", part = "header", j = "1", i = 2) %>%
+  bg(bg = "orange", part = "all", j = "2") %>%
+  bg(bg = "yellow", part = "all", j = "3") %>%
+  bg(bg = "mediumseagreen", part = "all", j = "4") %>%
+  bg(bg = "dodgerblue", part = "all", j = "5") %>%
+  set_header_labels(indicator = "Indicator", 
+                    '1' = "Red (lowest performance)",
+                    '2' = "Orange",
+                    '3' = "Yellow",
+                    '4' = "Green",
+                    '5' = "Blue (highest performance)")
+```
+
+## Dashboard Performance for Students Experiencing Homelessness
+
+```{r}
+#| label: homeless_chart
+#| echo: FALSE
+#| tbl-cap: "Counts of Indicator Colors in Solano County Districts "
+#| cap-location: bottom
+
+status_colors <- c(
+"tomato", "orange",
+  "yellow", "mediumseagreen", "dodgerblue"
+)
+
+dashboard %>% 
+  filter(rtype == "D" | (charter_flag == 'Y' & rtype == "S"),
+         color != 0,
+         student_group_long == "Homeless Youth",
+         indicator != "college/career") %>% 
+  group_by(indicator) %>% 
+  count(color) %>% 
+  ggplot(mapping = aes(x = color, y = n, fill = color))+
+  geom_col() +
+  facet_wrap(~ indicator) +
+  scale_fill_manual(values = status_colors, guide = FALSE) +
+  labs(x = "Performance Color", y = "Count of districts",
+       title = "Count of Performance Colors assigned to Homeless Youth by Indicator") +
+  theme_minimal()
+
+```

@@ -1,0 +1,21 @@
+---
+title: blah blah
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(flextable)
+```
+
+> this is how to print flextables in a loop in a R Markdown document
+
+```{r results='asis', echo=FALSE}
+purrr::map2_chr(
+  .x = c("cars", "iris"),
+  .y = list(cars, iris), 
+  function(caption, dat) {
+    knitr::knit_child(input = "child-loop.Rmd", envir = environment(), quiet = TRUE)
+  }) |> 
+  cat(sep = '\n')
+```

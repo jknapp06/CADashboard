@@ -1,0 +1,198 @@
+---
+title: "CollegeCareerIndicator"
+format: html
+editor: visual
+---
+
+```{r setup}
+#| include: false
+
+library(tidyverse)
+library(flextable)
+
+cci_2024 <- read_tsv("https://www3.cde.ca.gov/researchfiles/cadashboard/ccidownload2024.txt") %>% 
+  janitor::clean_names() %>% 
+  mutate(student_group_long = case_match(studentgroup,
+    "ALL" ~ "All students",
+    "AA" ~ "Black/African American",
+    "AI" ~ "American Indian or Alaska Native",
+    "AS" ~ "Asian",
+    "FI" ~ "Filipino",
+    "HI" ~ "Hispanic",
+    "PI" ~ "Pacific Islander",
+    "WH" ~ "White",
+    "MR" ~ "Multiple Races/Two or more",
+    "EL" ~ "English Learner",
+    "ELO" ~ "English Learners Only",
+    "RFP" ~ "RFEPs Only",
+    "EO" ~ "English Only",
+    "SBA" ~ "Smarter Balanced Assessment",
+    "CAA" ~ "CA Alternative Assessment",
+    "SED" ~ "Socioeconomically Disadvantaged",
+    "SWD" ~ "Students with Disabilities",
+    "FOS" ~ "Foster Youth",
+    "HOM" ~ "Homeless Youth",
+    "TOM" ~ "Multiple Races/Two or more",
+    "LTEL" ~ "Long-Term English Learner"),
+  countyname = case_match(rtype,
+     "X" ~ "CA State Aggregate",
+     .default = countyname),
+  schoolname = case_when(
+     rtype == "D" & is.na(schoolname) ~ "District Aggregate",
+     .default = schoolname))
+
+cci_2023 <- read_tsv("https://www3.cde.ca.gov/researchfiles/cadashboard/ccidownload2023.txt") %>% 
+  janitor::clean_names() %>% 
+  mutate(student_group_long = case_match(studentgroup,
+    "ALL" ~ "All students",
+    "AA" ~ "Black/African American",
+    "AI" ~ "American Indian or Alaska Native",
+    "AS" ~ "Asian",
+    "FI" ~ "Filipino",
+    "HI" ~ "Hispanic",
+    "PI" ~ "Pacific Islander",
+    "WH" ~ "White",
+    "MR" ~ "Multiple Races/Two or more",
+    "EL" ~ "English Learner",
+    "ELO" ~ "English Learners Only",
+    "RFP" ~ "RFEPs Only",
+    "EO" ~ "English Only",
+    "SBA" ~ "Smarter Balanced Assessment",
+    "CAA" ~ "CA Alternative Assessment",
+    "SED" ~ "Socioeconomically Disadvantaged",
+    "SWD" ~ "Students with Disabilities",
+    "FOS" ~ "Foster Youth",
+    "HOM" ~ "Homeless Youth",
+    "TOM" ~ "Multiple Races/Two or more",
+    "LTEL" ~ "Long-Term English Learner"),
+  countyname = case_match(rtype,
+     "X" ~ "CA State Aggregate",
+     .default = countyname),
+  schoolname = case_when(
+     rtype == "D" & is.na(schoolname) ~ "District Aggregate",
+     .default = schoolname))
+
+```
+
+```{r solano_cci}
+#| include: false
+
+solano_cci <-
+  bind_rows(cci_2024,
+            cci_2023)%>% 
+  filter(countyname == "Solano")
+
+solano_cci %>% 
+  filter(districtname == "Vallejo City Unified") %>% 
+  write_csv("data/vcusd_cci.csv")
+```
+
+```{r slim_cci}
+#| include: false
+
+slim_cci <- 
+  solano_cci %>% 
+  select(rtype, districtname, schoolname, charter_flag, coe_flag, dass_flag,
+         studentgroup, student_group_long, currdenom, currstatus, change,
+         color, starts_with("curr_"))
+
+```
+
+```{r all_student_summary}
+
+summary <- 
+  slim_cci %>% 
+  filter(student_group_long == "All students",
+         rtype == "D" | (charter_flag == "Y" & rtype == "S")) %>% 
+  mutate(leaname = if_else(is.na(charter_flag), districtname, schoolname))
+
+
+summary_counts <- 
+  summary %>%
+  select(leaname, total_students = currdenom,
+         starts_with("curr") & !ends_with("pct"))
+
+summary_pcts <- 
+  summary %>%
+  select(leaname, total_students = currdenom,
+         starts_with("curr") & ends_with("pct"))
+
+           
+```
+
+```{r summary_plot}
+#| echo: false
+#| fig-height: 6in
+
+pct_long <- 
+  summary_pcts %>% 
+  select(-c(total_students)) %>% 
+  pivot_longer(cols = -c(leaname), 
+               names_to = "path", names_pattern = "curr_(.*)_pct",
+               values_to = "percent") %>%
+  mutate(prepared_status = as_factor(case_when(
+                            path == "prep" ~ "Total Prepared",
+                            str_detect(path, "nprep") ~ "Not Prepared",
+                            str_detect(path, "aprep") ~ "Approaching Prepared",
+                            str_detect(path, "prep") ~ "Prepared"))) %>%
+  filter(percent != 0) %>% 
+  arrange(prepared_status) %>% 
+  ggplot() +
+  geom_col(aes(y = path, prepared_status, x = percent, fill = prepared_status)) +
+  # scale_y_continuous(labels = scales::label_percent()) +
+  facet_wrap(~ leaname) +
+  labs(title = "Paths to College/Career Readiness",
+       y = "Readiness Path",
+       x = "Percent of all CCI students") +
+  theme_minimal()
+
+pct_long
+```
+
+```{r spreadsheet}
+#| include: false
+
+very_slim_cci <- 
+  slim_cci %>% 
+  mutate(
+    # schoolname = str_remove(schoolname, " \\(Continuation\\)"),
+    #      schoolname = str_remove(schoolname, " of Excellence"),
+    #      schoolname = str_remove(schoolname, "Solano County Juvenile Detention Facility - "),
+         total_students = currdenom,
+         leaname = case_when(
+           districtname == "Solano County Office of Education" ~ "Solano COE",
+           schoolname == "Buckingham Collegiate Charter Academy" ~ "Buckingham Collegiate",
+           charter_flag == "Y" ~ schoolname,
+           .default = districtname)) %>% 
+  select(leaname, schoolname, student_group_long, total_students, starts_with("curr_")) %>% 
+mutate(across(contains("_pct"), ~ if_else(is.na(.x), NA, .x/100)))
+
+cci_names <- openxlsx::read.xlsx("data/cci_variables.xlsx")
+names_vec <- 
+  cci_names %>% 
+  filter(variable %in% names(very_slim_cci)) %>% 
+  select(description, variable) %>% 
+  distinct() %>% 
+  deframe()
+
+spreadsheet_cci <- 
+  very_slim_cci %>% 
+  rename(!!!names_vec)
+
+dashboard <- 
+  slim_cci %>% 
+  select(districtname, schoolname, charter_flag, coe_flag, dass_flag, student_group_long, currdenom, currstatus, change, color)
+
+lea_ss <-
+  spreadsheet_cci %>% 
+  pull(leaname) %>%
+  unique() %>% 
+  set_names() %>% 
+  map(~ filter(spreadsheet_cci, leaname == .x))
+
+lea_ss[["All student summary"]] = filter(spreadsheet_cci, student_group_long == "All students")
+lea_ss[["Dashboard"]] = dashboard
+
+openxlsx::write.xlsx(lea_ss, "solano_cci_2024.xlsx")
+
+```

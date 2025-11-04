@@ -1,0 +1,169 @@
+---
+title: Dashboard Trends for `r params$district`
+author: SCOE Assessment Research and Evaluation Team
+format: 
+  typst:
+    mainfont: Ebrima
+    fontsize: 10pt
+    # keep-tex: true
+    fig-dpi: 300
+    fig-height: 7
+    # titlegraphic: "www/SCOE_Logo.jpg"
+editor: visual
+params:
+  district: "Vacaville Unified"
+  initials: "VUSD"
+  year: "2023"
+---
+
+```{r setup, include = FALSE}
+
+library(shiny)
+library(tidyverse)
+library(DT)
+library(wesanderson)
+library(fontawesome)
+library(ggtext)
+library(showtext)
+library(formattable)
+library(DT)
+library(flextable)
+library(ggrepel)
+
+dashboard <- read_csv("data/ca_dashboard.csv") %>% 
+  filter(countyname == "Solano") %>%
+  mutate(statuslevel = as_factor(statuslevel),
+         reportingyear = fct_relevel(as_factor(reportingyear), "2019"),
+         indicator = case_match(indicator,
+                                "ELA" ~ "ELA (DFS)",
+                                "Math" ~ "Math (DFS)",
+                                "college/career" ~ "college/career",
+                                .default = indicator),
+         indicator = fct_relevel(as_factor(indicator), 
+                                 "ELA (DFS)", "Math (DFS)", "ELPI", 
+                                 "absenteeism", "graduation", 
+                                 "suspension"),
+         studentgroup = as_factor(studentgroup),
+         student_group_long = fct_relevel(as_factor(student_group_long),
+                                    "All students",
+                                    "American Indian or Alaska Native",
+                                    "Asian",
+                                    "Black/African American",
+                                    "Filipino",
+                                    "Hispanic",
+                                    "Pacific Islander",
+                                    "White",
+                                    "Multiple Races/Two or more",
+                                    "Socioeconomically Disadvantaged",
+                                    "Homeless Youth",
+                                    "Students with Disabilities",
+                                    "Foster Youth",
+                                    "English Learner",
+                                    "English Learners Only",
+                                    "RFEPs Only",
+                                    "English Only",
+                                    "Smarter Balanced Assessment",
+                                    "CA Alternative Assessment"
+                                    ),
+         color = as_factor(color)) 
+
+
+status_colors <- c(
+  "lightgrey", "tomato", "orange",
+  "yellow", "mediumseagreen", "dodgerblue", "darkgrey"
+)
+
+font_add('fa-solid', 'fonts/fa-solid-900.ttf')
+
+```
+
+```{r}
+#| label: filter_dashboard
+#| include: False
+
+groups_to_include <- c("ALL", "EL", "ELO", "RFP", "EO")
+group_colors <- c(
+  "All students" = "#6baeff", 
+  "English Learner" = "#eeaaff", 
+  "English Learners Only" = "#f6abcf",
+  "RFEPs Only" = "#daf3ff",
+  "English Only" = "#ccbdfc" )   
+years_to_include <- c("2023", "2022", "2021", "2020", "2019")
+indicators <- unique(dashboard$indicator)
+
+# element_markdown uses <br> for newlines
+html_wrap <- function(s, width = 17){
+    str_wrap(s, width = width) %>% 
+      str_replace_all("\n", "<br>")
+  }
+
+dashboard_filtered <- 
+  dashboard %>% 
+  filter(districtname == params$district,
+         studentgroup %in% groups_to_include,
+         reportingyear %in% years_to_include,
+         is.na(charter_flag),
+         schoolname != "Vacaville Unified School District Community Day") %>% 
+  mutate(reportingyear = fct_relevel(reportingyear, "2019", "2020", "2021", "2022", "2023"),
+         schoolname_markdown = str_wrap(schoolname, width = 30))
+
+```
+
+```{r}
+#| label: save_csv
+#| include: False
+
+dashboard_filtered %>% 
+  select(reportingyear, districtname, schoolname, indicator, studentgroup, student_group_long, currnumer, currdenom, currstatus, change, color) %>% 
+  write_csv(paste0(params$initials, "_dashboard_trends.csv"))
+```
+
+```{r}
+#| label: trend_charts
+#| echo: false
+#| results: asis
+
+for(i in indicators){
+  
+  i_case <- if_else(i %in% c("ELA (DFS)", "Math (DFS)", "ELPI"), i, str_to_title(i))
+  cat(paste0("## ", i_case, " status in ", params$district, " over time\n"))
+  
+  indicator_graph <- 
+    dashboard_filtered %>% 
+    filter(indicator == i) %>% 
+    select(schoolname_markdown, student_group_long, indicator, currstatus, color, reportingyear) %>% 
+    ggplot() +
+    geom_line(aes(reportingyear, currstatus, group = student_group_long, color = student_group_long),
+              linewidth = 1) + 
+    # geom_label_repel(aes(reportingyear, currstatus,
+    #                      label = currstatus,
+    #                      fill = student_group_long),
+    #                  size = 2) +
+    facet_wrap(~ schoolname_markdown, ncol = 4) +
+    labs(x = NULL, y = "Status", color = "Student Group") +
+    scale_color_manual(values = group_colors) +
+    # scale_fill_manual(values = group_colors) +
+    theme_minimal() +
+    theme(strip.text = element_text(size = 6))
+      
+  
+  print(indicator_graph)
+  cat("\n\n")
+}
+```
+
+```{r}
+#| label: trend_tables
+#| echo: false
+#| results: asis
+
+indicators %>% 
+purrr::map_chr(
+  \(i) 
+    knitr::knit_child(input = "trend_table.Rmd", 
+                      # envir = environment(),
+                      quiet = TRUE)
+  ) %>% 
+  cat(sep = '\n\n')
+
+```

@@ -1,0 +1,248 @@
+---
+format: html 
+fig-dpi: 300
+editor: visual
+---
+
+```{r setup, include = FALSE}
+
+library(tidyverse)
+library(flextable)
+library(openxlsx)
+
+dashboard <- read_csv("data/ca_dashboard.csv") %>% 
+  filter(countyname == "Solano" |
+           rtype == "X") %>% 
+  mutate(statuslevel = as_factor(statuslevel),
+         reportingyear = fct_relevel(as_factor(reportingyear), "2019"),
+         indicator = as_factor(indicator), 
+         studentgroup = as_factor(studentgroup),
+         student_group_long = fct_relevel(as_factor(student_group_long),
+                                    "All students",
+                                    "American Indian or Alaska Native",
+                                    "Asian",
+                                    "Black/African American",
+                                    "Filipino",
+                                    "Hispanic",
+                                    "Pacific Islander",
+                                    "White",
+                                    "Multiple Races/Two or more",
+                                    "Socioeconomically Disadvantaged",
+                                    "Homeless Youth",
+                                    "Students with Disabilities",
+                                    "Foster Youth",
+                                    "English Learner",
+                                    "Long-Term English Learner",
+                                    "English Learners Only",
+                                    "RFEPs Only",
+                                    "English Only",
+                                    "Smarter Balanced Assessment",
+                                    "CA Alternative Assessment"
+                                    ),
+         charter_flag = if_else(is.na(charter_flag), "N", charter_flag),
+         color = as_factor(case_match(color,
+                                      0 ~ "No color",
+                                      1 ~ "Red",
+                                      2 ~ "Orange",
+                                      3 ~ "Yellow",
+                                      4 ~ "Green",
+                                      5 ~ "Blue")),
+         lea = if_else(charter_flag == "Y", schoolname, districtname)) 
+
+status_colors <- c(
+  "lightgrey", "tomato", "orange",
+  "yellow", "mediumseagreen", "dodgerblue", "darkgrey"
+)
+
+charter_performance <- read.xlsx("data/charter_perfcat25.xlsx", sheet = 1, startRow = 4)
+charter_info <- read_csv("data/charter_info.csv")
+```
+
+## Charter Performance
+
+```{r charter_summary}
+#| echo: false
+
+charter_summary <- 
+  charter_performance %>% 
+  filter(County == "Solano") %>% 
+  select(-CDS) %>% 
+  left_join(charter_info, by = join_by("School" == "Charter School", District, County)) %>% 
+  select(CDS, County, District, School, `Funding Model`, Performance_Level, Criteria, `Date Charter Expires`)
+
+```
+
+```{r dashboard_summary}
+#| echo: false
+
+exclude_groups <- c("Asian", "Filipino", "White", "Multiple Races/Two or more", 
+                    "Smarter Balanced Assessment")
+academic_indicators <- c("ELA", "Math", "ELPI", "college/career")
+
+dashboard_summary <- 
+  dashboard %>% 
+  filter(reportingyear %in% c("2024", "2023"),
+         (countyname == "Solano" & charter_flag == "Y" ) |
+          (rtype == "X" ),
+         indicator %in% academic_indicators,
+         !(student_group_long %in% exclude_groups),
+         color != "No color") %>% 
+  select(reportingyear, schoolname, indicator, student_group_long, currstatus)
+
+ca_status <- 
+  dashboard_summary %>% 
+  filter(schoolname == "State of California") %>% 
+  rename(ca_status = currstatus) %>% 
+  select(-schoolname)
+
+solano_status <- 
+  dashboard_summary %>% 
+  filter(schoolname != "State of California") %>% 
+  left_join(ca_status, by = join_by(reportingyear, indicator, student_group_long))
+
+solano_groups_total <- 
+  solano_status %>% 
+  group_by(schoolname, indicator) %>% 
+  summarise(total_groups = n())
+
+solano_groups_ca_compare_count <- 
+  solano_status %>% 
+  mutate(compare_ca = case_when(
+    currstatus < ca_status ~ "Below",
+    currstatus == ca_status ~ "Equal",
+    currstatus > ca_status ~ "Above")) %>% 
+  group_by(schoolname, indicator, compare_ca) %>% 
+  count() %>% 
+  left_join(solano_groups_total, by = join_by(schoolname, indicator))
+
+solano_indicators <- 
+  charter_summary %>%
+  select(School, Performance_Level, Criteria) %>% 
+  left_join(solano_status, by = join_by(School == schoolname)) %>% 
+  left_join(solano_groups_ca_compare_count, 
+            by = join_by(School == schoolname, indicator)) %>% 
+  select(School, Performance_Level, Criteria, indicator, total_groups,
+         compare_ca, n, reportingyear, student_group_long, ca_status, currstatus) %>% 
+  filter((compare_ca == "Below" & currstatus < ca_status) |
+         (compare_ca == "Equal" & currstatus == ca_status) |
+         (compare_ca == "Above" & currstatus > ca_status)) %>%    
+  arrange(School, indicator, compare_ca, reportingyear, student_group_long)
+
+# Doesn't work exactly how I want it, but it's close
+# solano_indicators %>%
+#   flextable() %>%
+#   merge_v(j = 1:3, combine = T) %>%
+#   merge_v(j = 4:5, combine = T) %>%
+#   merge_v(j = 6:7, combine = T) %>%
+#   merge_v(j = 8, combine = T) %>%
+#   theme_vanilla()
+
+# solano_status %>% 
+#   ggplot() +
+#   geom_hline(aes(yintercept = ca_status), color = "#2B419B") +
+#   geom_point(aes(x = student_group_long, y = currstatus, 
+#                  color = schoolname), show.legend = F) +
+#   facet_grid(schoolname ~ indicator, switch = "y") +  # Moves strip labels to the left
+#   labs(title = "Charter Student Groups in relation to CA Status for Academic indicators",
+#        x = NULL,
+#        y = "Status") +
+#   theme_minimal() +
+#   theme(axis.text.x = element_blank(),
+#         axis.text.y = element_blank(),
+#         strip.text.y.left = element_text(angle = 0))
+
+```
+```{r write_excel}
+
+# Filter data
+filtered_charter <- 
+  charter_performance %>% 
+  filter(County == "Solano")
+
+filtered_dashboard <- 
+  dashboard %>% 
+  filter(reportingyear %in% c("2024", "2023"),
+         (countyname == "Solano" & charter_flag == "Y" ) |
+          (rtype == "X" ))
+
+# Add row indices to the dataset before any grouping operations
+solano_indicators <- solano_indicators %>%
+  mutate(row_idx = row_number())
+
+# Get merge ranges for hierarchical levels
+get_merge_ranges <- function(data, group_vars) {
+  data %>%
+    group_by(across(all_of(group_vars))) %>%
+    summarise(start_row = min(row_idx) + 1,  # +1 for header row
+              end_row = max(row_idx) + 1,
+              .groups = "drop") %>%
+    filter(start_row < end_row)  # Only include groups that need merging (more than 1 row)
+}
+
+# Calculate all merge ranges at different hierarchy levels
+merge_school <- get_merge_ranges(solano_indicators, c("School"))
+merge_perf <- get_merge_ranges(solano_indicators, c("School", "Performance_Level"))
+merge_criteria <- get_merge_ranges(solano_indicators, c("School", "Performance_Level", "Criteria"))
+merge_indicator <- get_merge_ranges(solano_indicators, c("School", "Performance_Level", "Criteria", "indicator"))
+merge_groups <- get_merge_ranges(solano_indicators, c("School", "Performance_Level", "Criteria", "indicator", "total_groups"))
+merge_compare <- get_merge_ranges(solano_indicators, c("School", "Performance_Level", "Criteria", "indicator", "total_groups", "compare_ca"))
+merge_n <- get_merge_ranges(solano_indicators, c("School", "Performance_Level", "Criteria", "indicator", "total_groups", "compare_ca", "n"))
+merge_year <- get_merge_ranges(solano_indicators, c("School", "Performance_Level", "Criteria", "indicator", "total_groups", "compare_ca", "n", "reportingyear"))
+
+# Create Excel Workbook
+wb <- createWorkbook()
+addWorksheet(wb, "Charter Summary")
+addWorksheet(wb, "Dashboard summary (Merged)")
+addWorksheet(wb, "Dashboard summary (Unmerged)")
+addWorksheet(wb, "Charter Performance ORIGINAL")
+addWorksheet(wb, "CA Dashboard (Charters)")
+
+# Add custom style for merged cells
+headerStyle <- createStyle(
+  fontColour = "#FFFFFF", fgFill = "#4F81BD", 
+  halign = "center", valign = "center", 
+  textDecoration = "bold", border = "TopBottomLeftRight"
+)
+
+# Write data - remove row_idx column before writing
+writeData(wb, "Charter Summary", charter_summary)
+writeData(wb, "Dashboard summary (Merged)", select(solano_indicators, -row_idx))
+writeData(wb, "Dashboard summary (Unmerged)", select(solano_indicators, -row_idx))
+writeData(wb, "Charter Performance ORIGINAL", filtered_charter)
+writeData(wb, "CA Dashboard (Charters)", filtered_dashboard)
+
+# Apply styles to header row
+addStyle(wb, "Dashboard summary (Merged)", headerStyle, rows = 1, cols = 1:(ncol(solano_indicators)-1))
+
+# Function to apply merges for a specific column
+apply_column_merges <- function(wb, sheet, merge_data, column_name, data) {
+  col_index <- which(names(data) == column_name)
+  if(length(col_index) == 1 && nrow(merge_data) > 0) {
+    for(i in 1:nrow(merge_data)) {
+      mergeCells(wb, sheet, 
+                 cols = col_index, 
+                 rows = merge_data$start_row[i]:merge_data$end_row[i])
+    }
+  }
+}
+
+# Apply merges for each column based on their respective hierarchical level
+apply_column_merges(wb, "Dashboard summary (Merged)", merge_school, "School", solano_indicators)
+apply_column_merges(wb, "Dashboard summary (Merged)", merge_perf, "Performance_Level", solano_indicators)
+apply_column_merges(wb, "Dashboard summary (Merged)", merge_criteria, "Criteria", solano_indicators)
+apply_column_merges(wb, "Dashboard summary (Merged)", merge_indicator, "indicator", solano_indicators)
+apply_column_merges(wb, "Dashboard summary (Merged)", merge_groups, "total_groups", solano_indicators)
+apply_column_merges(wb, "Dashboard summary (Merged)", merge_compare, "compare_ca", solano_indicators)
+apply_column_merges(wb, "Dashboard summary (Merged)", merge_n, "n", solano_indicators)
+apply_column_merges(wb, "Dashboard summary (Merged)", merge_year, "reportingyear", solano_indicators)
+
+# Auto-size columns for better readability
+setColWidths(wb, "Dashboard summary (Merged)", cols = 1:(ncol(solano_indicators)-1), widths = "auto")
+
+# Add formatting for easier reading
+addFilter(wb, "Dashboard summary (Merged)", row = 1, cols = 1:(ncol(solano_indicators)-1))
+freezePane(wb, "Dashboard summary (Merged)", firstRow = TRUE)
+
+# Save workbook
+saveWorkbook(wb, "Solano charter performance 2025.xlsx", overwrite = TRUE)
+```

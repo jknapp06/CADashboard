@@ -1,0 +1,384 @@
+---
+format: 
+  pdf:
+    mainfont: Ebrima
+    fontsize: 10pt
+    keep-tex: true
+    margin-top: 0.5in
+    margin-bottom: 0.75in
+    fig-width: 8
+    fig-dpi: 300
+editor: visual
+warning: false
+---
+
+![](www/SCOE_Logo.jpg){fig-align="right" width="127"}
+
+# Solano County Differentiated Assistance Summary 2024
+
+```{r setup, include = FALSE}
+library(tidyverse)
+library(flextable)
+library(wesanderson)
+
+dashboard <- read_csv("data/ca_dashboard.csv") %>% 
+  filter(countyname == "Solano") %>% 
+  mutate(reportingyear = fct_relevel(as_factor(reportingyear), "2019", "2020", "2021", "2022", "2023", "2024"),
+         indicator = as_factor(indicator))
+
+chart_colors = c("#332288", "#7755BB", "#BB77DD")
+all_years_color = "darkorchid"
+```
+
+### DA in Solano County LEAs
+
+```{r}
+#| label: leas
+#| echo: FALSE
+#| tbl-cap: "Counts of Solano County LEAs Eligible for DA"
+#| cap-location: bottom
+
+# DA Districts for each year
+dashboard %>% 
+  filter(priority_eligible) %>% 
+  distinct(rtype, cds, reportingyear) %>% 
+  group_by(reportingyear) %>% 
+  count(rtype, reportingyear) %>% 
+  pivot_wider(names_from = reportingyear, values_from = n) %>% 
+  mutate(rtype = if_else(rtype == "D", "Districts", "Charter Schools")) %>% 
+  rename(" " = rtype) %>% 
+  flextable()
+```
+
+Table 1 shows the counts of LEAs eligible for Differentiated Assistance (DA) for three years. Charter schools became eligible for DA in 2023.
+
+```{r}
+#| label: indicators
+#| echo: FALSE
+#| tbl-cap: "Counts of Solano County Districts Eligible for DA"
+#| cap-location: bottom
+
+# # DA Eligibility by priority
+# dashboard %>% 
+#   filter(priority_eligible, rtype == "D") %>%
+#     distinct(cds, reportingyear, priority) %>% 
+#   group_by(reportingyear, priority) %>% 
+#   count() %>% 
+#   # pivot_wider(names_from = reportingyear, values_from = n) %>% 
+#   ggplot() +
+#   geom_col(mapping = aes(x = as_factor(priority), y = n, fill = as_factor(reportingyear)),
+#            position = "dodge") +
+#   scale_fill_manual(values = wes_palette("Darjeeling1")) +
+#   theme_minimal()
+
+# DA Eligibility by indicator
+dashboard %>% 
+  filter(indicator_eligible, rtype == "D",
+         reportingyear %in% c("2019", "2022", "2023", "2024")) %>%
+    distinct(cds, reportingyear, indicator) %>% 
+  group_by(reportingyear, indicator) %>% 
+  count() %>% 
+  # pivot_wider(names_from = reportingyear, values_from = n) %>% 
+  ggplot() +
+  geom_col(mapping = aes(x = as_factor(indicator), y = n, fill = as_factor(reportingyear)),
+           position = "dodge") +
+  scale_fill_manual(values = chart_colors) +
+  labs(fill = "Year", x = NULL, 
+       y = "Districts Eligible for DA",
+       title = "Count of districts eligible for DA \nfor each indicator") +
+  theme_minimal() +
+  theme(title = element_text(size = 20),
+      axis.text.x = element_text(size = 12, vjust = 1, 
+                                 hjust = 1, angle = 45),
+      axis.text.y = element_text(size = 12),
+      axis.title.x = element_text(size = 14),
+      axis.title.y = element_text(size = 14),
+      strip.text = element_text(size = 12),
+      legend.title = element_text(size = 14),
+      legend.text = element_text(size = 12),
+      plot.caption = element_text(size = 12)
+  )
+
+```
+
+The figure above shows the breakdown for which indicators districts were eligible for DA. Reminder: LEAs are eligible for DA due to low performance in two or more priorities for one or more student groups. The chart above can be read as follows: in 2019, 2 districts were eligible for DA in part due to low performance in -- high rates of -- chronic absenteeism. In 2022, that count was 6 districts, and in 2023, 3 districts were eligible in part due to the chronic absenteeism indicator. Low performance can mean different things for each indicator: low performance in chronic absenteeism and suspension means that those rates are high, but low performance in academic, graduation, and college/career indicators mean low aggregated test scores or low rates.
+
+The college/career indicator was not reported in 2022 so no districts were eligible for DA based on that indicator.
+
+```{r}
+#| label: student_group_indicators
+#| echo: FALSE
+#| fig-height: 5
+#| tbl-cap: "Student groups eligible for DA"
+#| cap-location: bottom
+
+# DA by student_group and indicator
+# dashboard %>% 
+#   filter(rtype == "D", priority_eligible == TRUE) %>% 
+#   group_by(indicator, student_group_long, reportingyear) %>% 
+#   count() %>%
+#   pivot_wider(names_from = indicator, values_from = n) %>% 
+#   flextable()
+
+# dashboard %>%
+#   filter(rtype == "D", indicator_eligible == TRUE,
+#          reportingyear %in% c("2022", "2023")) %>%
+#   group_by(indicator, student_group_long, reportingyear) %>%
+#   count() %>%
+#   ungroup() %>%
+#   pivot_wider(names_from = c(indicator, reportingyear), values_from = n) %>%
+#   flextable() %>%
+#   colformat_double() %>%
+#   # separate_header(
+#   #   opts = c("span-top", "center-hspan", "bottom-vspan", "default-theme"),
+#   #   split = "[_]",
+#   #   fixed = FALSE) %>%
+#   align(align = "center", part = "all") %>%
+#   autofit()
+
+# DA by student_group and indicator
+dashboard %>%
+  filter(rtype == "D", indicator_eligible == TRUE) %>%
+  group_by(student_group_long, reportingyear) %>%
+  count(indicator) %>%
+  arrange(rev(reportingyear)) %>% 
+  ggplot(mapping = aes(x = n, y = reorder(student_group_long, n))) +
+  geom_col(aes(fill = as_factor(reportingyear)),
+           position = "dodge") +
+  scale_fill_manual(values = chart_colors) +
+  labs(fill = "Year", x = "Number of Districts Eligible for DA", 
+       y = NULL, title = "DA Eligible Districts \nby Student Groups") +
+  theme_minimal() +
+  theme(title = element_text(size = 20),
+      axis.text.x = element_text(size = 12),
+      axis.text.y = element_text(size = 12),
+      axis.title.x = element_text(size = 14),
+      axis.title.y = element_text(size = 14),
+      strip.text = element_text(size = 12),
+      legend.title = element_text(size = 14),
+      legend.text = element_text(size = 12),
+      plot.caption = element_text(size = 12)
+  ) 
+
+# da_groups %>% 
+#   ggplot() +
+#   geom_line(mapping = aes(x = reportingyear, y = n)) + 
+#   facet_grid(indicator ~ student_group_long) +
+#   theme_minimal()
+```
+
+The length of the bars in the chart above refers to the number of districts eligible for DA in Solano County. The chart shows the breakdown by student groups. It can be read as: in 2019 (the darkest, bottom bar for each group) homeless youth factored into one district's eligibility. In 2022, 3 districts were eligible for DA, at least in part, due to low performance of indicators for the homeless youth student group. In 2023, outcomes from the homeless youth student group factored into the eligibility of 2 districts. Another example is that for all three years reported, the socioeconomically disadvantaged student group factored into the DA eligibility for one district -- though not necessarily the same district or indicators each year.
+
+```{r}
+#| label: academic_multiples
+#| echo: FALSE
+#| fig-height: 5
+
+# Academic small multiples
+dashboard %>%
+  filter(rtype == "D", 
+         priority_eligible == TRUE, 
+         priority == 4) %>%
+  group_by(student_group_long, reportingyear) %>%
+  summarize(n = n_distinct(districtname)) %>%
+  ungroup() %>%
+  complete(nesting(student_group_long), reportingyear, fill = list(n = 0)) %>%
+  # flextable()
+  ggplot() +
+  geom_line(mapping = aes(x = reportingyear, y = n, group = student_group_long),
+            linewidth = 1.5,
+            color = all_years_color,
+           position = "dodge") +
+  facet_wrap(~ student_group_long) +
+  labs(x = "Year", y = "Count of Districts Eligible for DA",
+       title = "Count of districts where academic indicators\nfactored into DA eligibility") +
+  scale_y_continuous(labels = scales::label_number(accuracy = 1)) +
+  # scale_x_continuous() +
+  theme_minimal() +
+  theme(title = element_text(size = 20),
+      axis.text.x = element_text(size = 12),
+      axis.text.y = element_text(size = 12),
+      axis.title.x = element_text(size = 14),
+      axis.title.y = element_text(size = 14),
+      strip.text = element_text(size = 12),
+      legend.title = element_text(size = 14),
+      legend.text = element_text(size = 12),
+      plot.caption = element_text(size = 12)
+  )
+
+```
+
+The graphs above show the numbers of districts eligible for DA based in part on academic indicators for the last five years. Academic indicators include student performance on English Language Arts (ELA), Math, and the English Learner Progress Index (ELPI) -- for English Learners only.
+
+```{r}
+#| label: absenteeism_multiples
+#| echo: FALSE
+#| fig-height: 5
+
+# Absenteeism small multiples
+dashboard %>%
+  filter(rtype == "D", 
+         indicator_eligible == TRUE, 
+         indicator == "absenteeism") %>%
+  group_by(student_group_long, reportingyear) %>%
+  summarize(n = n_distinct(districtname)) %>%
+  ungroup() %>%
+  complete(nesting(student_group_long), reportingyear, fill = list(n = 0)) %>%
+  # flextable()
+  ggplot() +
+  geom_line(mapping = aes(x = reportingyear, y = n, group = student_group_long),
+            linewidth = 1.5,
+            color = all_years_color,
+           position = "dodge") +
+  facet_wrap(~ student_group_long, ncol = 3) +
+  labs(x = "Year", y = "Count of Districts Eligible for DA",
+       title = "Count of districts where chronic absenteeism\nfactored into DA eligibility") +
+  scale_y_continuous(labels = scales::label_number(accuracy = 1)) +
+  # scale_x_continuous() +
+  theme_minimal() +
+  theme(title = element_text(size = 20),
+      axis.text.x = element_text(size = 12),
+      axis.text.y = element_text(size = 12),
+      axis.title.x = element_text(size = 14),
+      axis.title.y = element_text(size = 14),
+      strip.text = element_text(size = 12),
+      legend.title = element_text(size = 14),
+      legend.text = element_text(size = 12),
+      plot.caption = element_text(size = 12)
+  )
+
+```
+
+The graphs above show the numbers of districts eligible for DA based in part on chronic absenteeism for the last five years. A student is counted as chronically absent when they miss 10% or more of the days they are expected to attend school. Most student groups in most LEAs improved in their rates of chronic absenteeism helping them to be assigned colors at high performance levels, but absolute rates of chronic absenteeism are still high for most LEAs.
+
+```{r}
+#| label: absenteeism_status_multiples
+#| echo: FALSE
+#| fig-height: 5
+
+summary_absenteeism <- 
+  dashboard %>% 
+  filter(rtype == "D",
+         indicator == "absenteeism",
+         student_group_long == "All students") %>%
+  drop_na(currstatus) %>% 
+  group_by(reportingyear) %>%
+  summarise(mean_status = mean(currstatus),
+            median_status = median(currstatus))
+
+# Absenteeism status small multiples
+dashboard %>%
+  filter(rtype == "D",
+         indicator == "absenteeism") %>%
+  # flextable()
+  ggplot() +
+  geom_density(mapping = aes(x = currstatus, group = reportingyear,
+            fill = reportingyear),
+            color = "black") +
+  facet_wrap(~ reportingyear, ncol = 3) +
+  labs(x = "Percentage of student group chronically absent", y = "Percent of all student groups",
+       title = "Distribution of student groups' \nchronic absenteeism rates",
+       fill = "Year",
+       caption = 'Vertical line shows the median rate of 
+       chronic absenteeism for the "All students" group in all districts.') +
+  scale_y_continuous(labels = scales::label_percent()) +
+  scale_fill_manual(values = chart_colors) +
+  # scale_x_continuous() +
+  # geom_vline(data = summary_absenteeism, mapping = aes(xintercept = mean_status), color = "darkblue") +
+  # geom_label(data = summary_absenteeism, mapping = aes(x = mean_status, y = 0.04, label = paste0(round(mean_status, 1),"%"))) +
+  geom_vline(data = summary_absenteeism, mapping = aes(xintercept = median_status), color = "darkblue") +
+  geom_label(data = summary_absenteeism, mapping = aes(x = median_status, y = 0.04, label = paste0(round(median_status, 1),"%"))) +
+  theme_minimal() +
+  theme(title = element_text(size = 20),
+      axis.text.x = element_text(size = 12),
+      axis.text.y = element_text(size = 12),
+      axis.title.x = element_text(size = 14),
+      axis.title.y = element_text(size = 14),
+      strip.text = element_text(size = 12),
+      legend.title = element_text(size = 14),
+      legend.text = element_text(size = 12),
+      plot.caption = element_text(size = 12)
+  )
+
+```
+
+The above figure shows three years of chronic absenteeism rates. Each graph shows the distribution of student groups by chronic absenteeism rate.The vertical blue line shows the median rate for the "all students" group in districts in Solano County. In 2023, the median chronic absenteeism rate was 11%, and we can see the distribution for student groups matches up with this with most student groups to the left of this line. In 2022, the median rate was 33.9%, but the distribution shows a large number of student groups with higher rates. In 2023, chronic absenteeism rates went down across the board with the median rate for "all students" declining, the distribution of student groups shifting to the right, and the highest rates decreasing, but it is still much higher than pre-pandemic levels. Additionally, a large number of student groups are to the right of the median line suggesting that there are many student groups with potentially small numbers of students that have a higher rate of chronic absenteeism than the median.
+
+```{r}
+#| label: suspension_multiples
+#| echo: FALSE
+#| fig-height: 5
+
+# Suspension small multiples
+dashboard %>%
+  filter(rtype == "D", 
+         indicator_eligible == TRUE, 
+         indicator == "suspension") %>%
+  group_by(student_group_long, reportingyear) %>%
+  summarize(n = n_distinct(districtname)) %>%
+  ungroup() %>%
+  complete(nesting(student_group_long), reportingyear, fill = list(n = 0)) %>%
+  # flextable()
+  ggplot() +
+  geom_line(mapping = aes(x = reportingyear, y = n, group = student_group_long),
+            linewidth = 1.5,
+            color = all_years_color,
+           position = "dodge") +
+  facet_wrap(~ student_group_long, ncol = 3) +
+  labs(x = "Year", y = "Count of Districts Eligible for DA",
+       title = "Count of districts where suspension\nfactored into DA eligibility") +
+  scale_y_continuous(labels = scales::label_number(accuracy = 1)) +
+  # scale_x_continuous() +
+  theme_minimal() +
+  theme(title = element_text(size = 20),
+      axis.text.x = element_text(size = 12),
+      axis.text.y = element_text(size = 12),
+      axis.title.x = element_text(size = 14),
+      axis.title.y = element_text(size = 14),
+      strip.text = element_text(size = 12),
+      legend.title = element_text(size = 14),
+      legend.text = element_text(size = 12),
+      plot.caption = element_text(size = 12)
+  )
+
+```
+
+The graphs above show the number of districts eligible for DA based in part on suspension rates of that student group for the last five years.
+
+```{r}
+#| label: college/career
+#| echo: FALSE
+#| fig-height: 5
+#| tbl-cap: "Student groups eligible for DA for College/Career"
+#| cap-location: bottom
+
+# College Career by student_group and district
+dashboard %>%
+  filter(rtype == "D", 
+         indicator_eligible == TRUE, 
+         reportingyear == "2023",
+         indicator == "college/career") %>%
+  group_by(student_group_long) %>%
+  count() %>%
+  ggplot() +
+  geom_col(mapping = aes(x = n, y = reorder(student_group_long, n)),
+           fill = all_years_color,
+           position = "dodge") +
+  scale_fill_manual(values = chart_colors) +
+  labs(fill = "Year", x = "Eligible Districts",
+       y = NULL, title = "Number of Districts Eligible for DA \nbased on College/Career 2023") +
+  theme_minimal() +
+  theme(title = element_text(size = 20),
+      axis.text.x = element_text(size = 12),
+      axis.text.y = element_text(size = 12),
+      axis.title.x = element_text(size = 14),
+      axis.title.y = element_text(size = 14),
+      strip.text = element_text(size = 12),
+      legend.title = element_text(size = 14),
+      legend.text = element_text(size = 12),
+      plot.caption = element_text(size = 12)
+  )
+
+```
+
+The figure above shows the counts for districts eligible for DA at least in part based on the college/career indicator. It is broken down by student groups indicating which groups played a factor in DA eligibility across the county.

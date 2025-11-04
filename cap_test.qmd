@@ -1,0 +1,22 @@
+---
+title: "caption_test"
+format: pdf
+fig-cap-location: top
+tbl-cap-location: top
+editor: visual
+---
+
+## 
+
+```{r test}
+#| echo: false
+#| fig-cap: "This is a test."
+
+library(tidyverse)
+library(flextable)
+
+cars %>% 
+  ggplot(aes(x = speed, y = dist)) +
+  geom_point()
+
+```

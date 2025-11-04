@@ -1,0 +1,103 @@
+---
+format: 
+  docx:
+    fig-dpi: 300
+    fig-width: 7.5
+    reference-doc: da_letter_template.docx
+editor: visual
+params:
+  lea: Benicia Unified
+  initials: VCUSD
+  superintendent: Superintendent Aurelio
+---
+
+```{r setup}
+#| include: false
+
+# Letter notifying districts and charters of DA status
+# * Priority eligibility
+# * Year eligibility
+# * Student groups and indicators
+
+# Additional letter notifying charters of exit status
+
+# Probably three templates: district DA 
+
+library(tidyverse)
+library(openxlsx)
+library(janitor)
+library(lubridate)
+library(flextable)
+
+# da_districts <- read.xlsx("data/Solano[39].xlsx", sheet = "District and COE 2024")
+# da_charters <- read.xlsx("data/Solano_charter[34].xlsx", sheet = "Charter School 2024")
+
+
+
+today_date <- format(now(), "%B %e, %Y")
+
+number_to_word <- function(n) {
+  switch(n, "one student group", "two student groups", "three student groups",
+         "four student groups", "five student groups", "six student groups", 
+         "seven student groups", "eight student groups", "nine student groups",
+         "ten student groups", "eleven student groups", "twelve student groups",
+         "thirteen student groups", "fourteen student groups", "fifteen student groups")
+}
+         
+student_group_count <- 
+  dashboard %>% 
+  distinct(student_group_long) %>% 
+  nrow() %>% 
+  number_to_word()
+
+```
+
+`r today_date`
+
+RE:  2024-25 & 2025-26 Eligibility for Assistance under California’s System of Support
+
+Dear `r params$superintendent` and Governing Board Members,
+
+On November 21, the California Department of Education released the results of the 2024 California School Dashboard. In accordance with California’s System of Support (*Education Code 52071*), Local Education Agencies (LEAs) are eligible for Differentiated Assistance based on the performance of student groups on the Dashboard. The recent revision of Education Code 52071(c)(1) provides that the Solano County Office of Education shall provide assistance for a minimum of *two years following the identification*. Using the eligibility criteria, `r params$lea` (`r params$initials`) has qualified for Differentiated Assistance based on `r student_group_count` who received the lowest status level in two or more state priority areas as follows:
+
+```{r da_groups}
+#| echo: false
+
+dashboard %>% 
+  select(student_group_long, priority, indicator) %>% 
+  arrange(student_group_long, priority) %>% 
+  mutate(priority = case_match(priority,
+             4 ~ "Priority 4 – Pupil Achievement",
+             5 ~ "Priority 5 – Pupil Engagement",
+             6 ~ "Priority 6 – School Climate",
+             8 ~ "Priority 8 – Outcomes in a Broad Course of Study",
+             .default = paste(priority)),
+         indicator = if_else(indicator == "ELA" | indicator == "ELPI" , 
+                             indicator, str_to_title(indicator))) %>% 
+  flextable() %>% 
+  set_header_labels(values = list("student_group_long" = "Student Group",
+                                  "priority" = "Priority",
+                                  "indicator" = "Indicator")) %>% 
+  width(width = c(2, 2.5, 1.5)) %>% 
+  merge_v() %>% 
+  theme_vanilla()
+
+```
+
+Engaging in a continuous improvement process is key to our approach to addressing needs brought to light by the Dashboard. In partnership with district leadership and educational partners, Solano County Office of Education (SCOE) will continue to support `r paste0(params$initials, "'s")` review of the 2024 Dashboard and local data, identification of the district's strengths, and analysis of possible causes of challenges. Using improvement science strategies in this collaborative process enables systems-level reflection and provides technical assistance related to measurement, data analysis, and targeted improvements. SCOE's support will center on creating a culture of improvement for `r params$initials` staff and the students in your care.
+
+The approach will evolve and improve over time based on feedback from educational partners and will include the following:
+
+-   The Solano County Office of Education will continue to work with you to identify underlying causes, possible solutions, helpful resources or expertise, and methods for measuring the effectiveness of possible solutions. There is no requirement to create a new improvement plan nor will the state dictate a specific set of interventions or establish top-down directives for improvement.
+-   The opportunity for strategic focus and collaboration on student groups meeting the criteria for technical assistance in all three out of the last four years in accordance with Education Code 52072.
+-   Leveraging the Local Control and Accountability Plan (LCAP) process to engage local educators and communities strengthening the LCAP through the annual update cycle.
+-   The assistance does not need to be limited only to the student group(s) and indicators that led to identification. Rather, assistance can and should focus on your actual needs, regardless of the reasons for your eligibility.
+-   The assistance is intended to help you leverage strengths/successes, identify needs/challenges and to access expertise or resources to help you address them. While there is urgency to begin this work, there are no quick fixes for developing capacity; such efforts require long-term commitment so that improvement can be sustained and measured over time.
+
+Please feel free to contact Dr. Andrea Lemos, Deputy Superintendent of Educational Services and Student Programs at 707-399-4430 if you have any other questions related to this process.
+
+In partnership,
+
+Lisette Estrella-Henderson
+
+Solano County Superintendent of Schools

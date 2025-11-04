@@ -1,0 +1,28 @@
+---
+title: "da_history_wide"
+format: html
+editor: visual
+---
+
+```{r setup}
+#| include: false
+
+library(tidyverse)
+library(googlesheets4)
+
+da_summary <- read_sheet("1VDkll0kkTn8QaSx7b8mdDGPdZs3VMIt-XVFfQyqhGtM", sheet = "History of DA Statuses")
+```
+
+```{r widen_summary}
+#| echo: false
+
+wide_summary <- 
+  da_summary %>% 
+  select(`County Name`, `LEA Name`, `Report Year`, 
+         `Student Group`, Description) %>% 
+  pivot_wider(names_from = "Report Year", values_from = "Description")
+
+write_sheet(ss = "1VDkll0kkTn8QaSx7b8mdDGPdZs3VMIt-XVFfQyqhGtM",
+            sheet = "History of DA Statuses - Wide",
+            data = wide_summary)
+```

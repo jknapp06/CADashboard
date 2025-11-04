@@ -1,0 +1,140 @@
+---
+title: "one pager extra"
+format: html
+editor: visual
+---
+
+## `r params$lea` `r params$year` Dashboard Formattable
+
+```{r dashboard_table, echo = FALSE, fig.height = 8, fig.width = 10}
+
+dashboard_wide <-
+  dashboard %>%
+  filter(lea == params$lea,
+         reportingyear == params$year,
+         charter_flag == "Y" | rtype == "D") %>%
+  mutate(student_group_wrapped = str_wrap(student_group_long, width = 15),
+         change = if_else(is.na(change), 0, change),
+         change_arrow = case_match(changelevel,
+                                   0 ~ '<i class="glyphicon glyphicon-glyphicon-remove"></i>', # No change level
+                                   1 ~ '<i class="glyphicon glyphicon-arrow-down"></i>', # Decreased significantly
+                                   2 ~ '<i class="glyphicon glyphicon-chevron-down"></i>', # Decreased
+                                   3 ~ '<i class="glyphicon glyphicon-pause"></i>', # Maintained
+                                   4 ~ '<i class="glyphicon glyphicon-chevron-up"></i>', # Increased
+                                   5 ~ '<i class="glyphicon glyphicon-arrow-up"></i>')# Increased significantly
+         ) %>%
+  select(student_group_wrapped, currstatus, change, indicator, color, change_arrow, priority_eligible) %>%
+  pivot_wider(names_from = indicator,
+              values_from = c(color, currstatus, change_arrow, change, priority_eligible)) %>%
+  mutate(ELA = paste(currstatus_ELA, change_arrow_ELA, change_ELA),
+         Math = paste(currstatus_Math, change_arrow_Math, change_Math),
+         ELPI = paste(currstatus_ELPI, change_arrow_ELPI, change_ELPI),
+         Absenteeism = paste(currstatus_absenteeism, change_arrow_absenteeism, change_absenteeism),
+         Suspension = paste(currstatus_suspension, change_arrow_suspension, change_suspension),
+         Graduation = paste(currstatus_graduation, change_arrow_graduation, change_graduation),
+         `College/Career` = paste(`currstatus_college/career`, `change_arrow_college/career`, `change_college/career`)) %>%
+  select(student_group_wrapped, ELA, Math, ELPI, Absenteeism,
+         Suspension, Graduation, 'College/Career', starts_with("color"))
+
+
+# dashboard_wide <- 
+#   dashboard %>% 
+#   filter(lea == params$lea,
+#          reportingyear == params$year,
+#          charter_flag == "Y" | rtype == "D") %>% 
+#   mutate(student_group_wrapped = str_wrap(student_group_long, width = 15),
+#          change = if_else(is.na(change), 0, change),
+#          change_arrow = case_match(changelevel,
+#                                    0 ~ "glyphicon-remove", # No change level
+#                                    1 ~ "arrow-down", # Decreased significantly
+#                                    2 ~ "chevron-down", # Decreased
+#                                    3 ~ "pause", # Maintained
+#                                    4 ~ "chevron-up", # Increased
+#                                    5 ~ "arrow-up")# Increased significantly
+#          ) %>%
+#   select(student_group_wrapped, currstatus, change, indicator, color, change_arrow, priority_eligible) %>% 
+#   pivot_wider(names_from = indicator, 
+#               values_from = c(color, currstatus, change_arrow, change, priority_eligible)) %>% 
+#   mutate(ELA = currstatus_ELA,
+#          Math = currstatus_Math,
+#          ELPI = currstatus_ELPI,
+#          Absenteeism = currstatus_absenteeism,
+#          Suspension = currstatus_suspension,
+#          Graduation = currstatus_graduation,
+#          `College/Career` = `currstatus_college/career`) %>% 
+#   select(student_group_wrapped, ELA, Math, ELPI, Absenteeism, 
+#          Suspension, Graduation, 'College/Career', 
+#          starts_with("color"),
+#          starts_with("currstatus"),
+#          starts_with("change"))
+
+
+ela_color <- formatter("span", 
+                       style = ~ style(
+                         "background-color" = status_colors[color_ELA],
+                         "padding-top" = "5px",
+                         "padding-bottom" = "2px",
+                         "padding-right" = "10px",
+                         "padding-left" = "10px",
+                         border = "2px",
+                         "border-radius" = "8px")
+                       # ~ icontext(currstatus_ELA, icon = change_arrow_ELA, change_ELA)
+                       )
+math_color <- formatter("span", 
+                       style = ~ style(
+                         # "background-color" = status_colors[color_ELA],
+                         "padding-top" = "2px",
+                         "padding-bottom" = "1px",
+                         "padding-right" = "10px",
+                         "padding-left" = "10px",
+                         border = "2px solid black",
+                         "border-radius" = "8px"))
+                       # ~ icontext(change_arrow_Math, Math))
+absenteeism_color <- formatter("span", style = ~ style("background-color" = status_colors[color_absenteeism]))
+
+formattable(dashboard_wide, list(ELA = ela_color,
+                                 Absenteeism = absenteeism_color,
+                                 Math = math_color,
+                                 color_ELA = FALSE,
+                                 color_Math = FALSE,
+                                 color_ELPI = FALSE,
+                                 `color_college/career` = FALSE,
+                                 color_graduation  = FALSE,
+                                 color_absenteeism = FALSE,
+                                 color_suspension = FALSE))
+
+```
+
+## `r params$lea` `r params$year` Dashboard DataTable
+
+```{r dashboard_datatable, echo = FALSE, fig.height = 8, fig.width = 10}
+
+dashboard_wide <-
+  dashboard %>%
+  filter(lea == params$lea,
+         reportingyear == params$year,
+         charter_flag == "Y" | rtype == "D") %>%
+  mutate(student_group_wrapped = str_wrap(student_group_long, width = 15),
+         change = if_else(is.na(change), 0, change),
+         change_arrow = case_match(changelevel,
+                                   0 ~ '<i class="glyphicon glyphicon-glyphicon-remove"></i>', # No change level
+                                   1 ~ '<i class="glyphicon glyphicon-arrow-down"></i>', # Decreased significantly
+                                   2 ~ '<i class="glyphicon glyphicon-chevron-down"></i>', # Decreased
+                                   3 ~ '<i class="glyphicon glyphicon-pause"></i>', # Maintained
+                                   4 ~ '<i class="glyphicon glyphicon-chevron-up"></i>', # Increased
+                                   5 ~ '<i class="glyphicon glyphicon-arrow-up"></i>')# Increased significantly
+         ) %>%
+  select(student_group_wrapped, currstatus, change, indicator, color, change_arrow, priority_eligible) %>%
+  pivot_wider(names_from = indicator,
+              values_from = c(color, currstatus, change_arrow, change, priority_eligible)) %>%
+  mutate(ELA = paste(currstatus_ELA, change_arrow_ELA, change_ELA),
+         Math = paste(currstatus_Math, change_arrow_Math, change_Math),
+         ELPI = paste(currstatus_ELPI, change_arrow_ELPI, change_ELPI),
+         Absenteeism = paste(currstatus_absenteeism, change_arrow_absenteeism, change_absenteeism),
+         Suspension = paste(currstatus_suspension, change_arrow_suspension, change_suspension),
+         Graduation = paste(currstatus_graduation, change_arrow_graduation, change_graduation),
+         `College/Career` = paste(`currstatus_college/career`, `change_arrow_college/career`, `change_college/career`)) %>%
+  select(student_group_wrapped, ELA, Math, ELPI, Absenteeism,
+         Suspension, Graduation, 'College/Career', starts_with("color"))
+
+```

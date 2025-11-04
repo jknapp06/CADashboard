@@ -1,0 +1,6 @@
+```{r echo=FALSE}
+library(flextable)
+flextable::flextable(head(dat)) |> 
+  set_table_properties(layout = "autofit") |> 
+  set_caption(caption = caption)
+```

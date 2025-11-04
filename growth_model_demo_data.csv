@@ -1,0 +1,7 @@
+School,Growth_Score,Error,Lower_Bound,Upper_Bound
+School A,-2.5,1.0,-3.5,-1.5
+School B,0.5,1.0,-0.5,1.5
+School C,1.2,0.8,0.4,2.0
+School D,-1.0,1.2,-2.2,0.2
+School E,3.0,0.7,2.3,3.7
+School F,-1.5,0.5,-2.0,-1.0

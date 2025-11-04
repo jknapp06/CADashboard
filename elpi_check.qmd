@@ -1,0 +1,28 @@
+---
+title: "ELPI Check"
+format: html
+editor: visual
+---
+
+```{r setup}
+#| include: false
+
+library(tidyverse)
+library(janitor)
+library(flextable)
+library(vroom)
+
+elpi <- vroom("C:/Users/jknapp/Solano County Office of Education/Assessment Research and Evaluation - A.R.E. Library/California School Dashboard/2024/Dashboard Files/ELPI_2024.txt") %>% 
+  clean_names()
+
+elpi2023 <- vroom("https://www3.cde.ca.gov/researchfiles/cadashboard/elpidownload2023.txt")
+
+assistance <- read_csv("data/assistance.csv")
+
+```
+
+```{r elpi_check}
+
+
+
+```
