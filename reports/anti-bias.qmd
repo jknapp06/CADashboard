@@ -1,0 +1,301 @@
+---
+format: 
+  docx:
+    reference-doc: scoe-are-report.docx
+    fig-width: 8
+    fig-dpi: 300
+editor: visual
+warning: false
+---
+
+```{r setup}
+#| include: false
+
+library(tidyverse)
+library(wesanderson)
+library(flextable)
+library(janitor)
+library(openxlsx)
+library(ggrepel)
+
+dashboard_all <- read_csv("data/ca_dashboard.csv") %>% 
+  filter(countyname == "Solano",
+         districtname != "Solano County Office of Education") %>%
+  mutate(statuslevel = as_factor(statuslevel),
+         # reportingyear = fct_relevel(as_factor(reportingyear), "2019"),
+         indicator = fct_relevel(as_factor(indicator), 
+                                 "ELA", "Math", "ELPI", 
+                                 "absenteeism", "graduation", 
+                                 "suspension"),
+         studentgroup = as_factor(studentgroup),
+         student_group_long = fct_relevel(as_factor(student_group_long),
+                                    "All students",
+                                    "American Indian or Alaska Native",
+                                    "Asian",
+                                    "Black/African American",
+                                    "Filipino",
+                                    "Hispanic",
+                                    "Pacific Islander",
+                                    "White",
+                                    "Multiple Races/Two or more",
+                                    "Socioeconomically Disadvantaged",
+                                    "Homeless Youth",
+                                    "Students with Disabilities",
+                                    "Foster Youth",
+                                    "English Learner",
+                                    "English Learners Only",
+                                    "RFEPs Only",
+                                    "English Only",
+                                    "Smarter Balanced Assessment",
+                                    "CA Alternative Assessment"
+                                    ),
+         color = as_factor(color),
+         # initials = case_match(districtname,
+         #                       "Solano County Office of Education" ~ "SCOE",
+         #                       "Benicia Unified" ~ "BUSD",
+         #                       "Dixon Unified" ~ "DUSD",        
+         #                       "Fairfield-Suisun Unified"~ "FSUSD",
+         #                       "Travis Unified" ~ "TUSD",
+         #                       "Vacaville Unified" ~ "VUSD",
+         #                       "Vallejo City Unified" ~ "VCUSD")
+                  initials = case_match(districtname,
+                               "Benicia Unified" ~ "A",
+                               "Dixon Unified" ~ "B",        
+                               "Fairfield-Suisun Unified"~ "C",
+                               "Travis Unified" ~ "D",
+                               "Vacaville Unified" ~ "E",
+                               "Vallejo City Unified" ~ "F"))
+
+dashboard <- 
+  dashboard_all %>% 
+  filter(reportingyear == "2024")
+
+status_colors <- c(
+  "lightgrey", "tomato", "orange",
+  "yellow", "mediumseagreen", "dodgerblue", "darkgrey"
+)
+```
+
+# Student Achievement Data
+
+```{r ELA}
+#| echo: false
+#| fig-height: 4.5
+
+# I am looking for student achievement data of our ELs, HFY and SpEd students and chronic absenteeism countywide. This would only be for last school year. 
+
+dashboard %>% 
+  filter(student_group_long %in% c("All students", "English Learner", "Foster Youth", "Homeless Youth")) %>% 
+  filter(indicator == "ELA",
+         rtype == "D") %>% 
+  drop_na(currstatus) %>% 
+  ggplot() +
+  geom_label_repel(aes(x = student_group_long, y = currstatus, fill = color, label = initials), size = 3, color = "#444444", show.legend = F) +
+  scale_fill_manual(values = status_colors) +
+  labs(title = "ELA outcomes among select student groups 
+       in Solano County Districts",
+       x = NULL,
+       y = "Distance from Standard",
+       caption = "Label color based on dashboard color for this indicator. 
+       Grey indicates that no color was assigned.
+       Groups with fewer than 11 students are supressed for privacy.
+       Source: 2024 CA Dashboard") +
+  theme_minimal()
+
+```
+
+```{r Math}
+#| echo: false
+#| fig-height: 4.5
+
+# I am looking for student achievement data of our ELs, HFY and SpEd students and chronic absenteeism countywide. This would only be for last school year. 
+
+dashboard %>% 
+  filter(student_group_long %in% c("All students", "English Learner", "Foster Youth", "Homeless Youth")) %>% 
+  filter(indicator == "Math",
+         rtype == "D") %>% 
+  drop_na(currstatus) %>% 
+  ggplot() +
+  geom_label_repel(aes(x = student_group_long, y = currstatus, fill = color, label = initials), 
+                   size = 3, color = "#444444", show.legend = F) +
+  scale_fill_manual(values = status_colors) +
+  labs(title = "Math outcomes among select student groups 
+       in Solano County Districts",
+       x = NULL,
+       y = "Distance from Standard",
+       caption = "Label color based on dashboard color for this indicator. 
+       Grey indicates that no color was assigned.
+       Groups with fewer than 11 students are supressed for privacy.
+       Source: 2024 CA Dashboard") +
+  theme_minimal()
+
+```
+
+```{r absenteeism}
+#| echo: false
+#| fig-height: 5
+
+dashboard %>% 
+  filter(student_group_long %in% c("All students", "English Learner", "Foster Youth", "Homeless Youth")) %>% 
+  filter(indicator == "absenteeism",
+         rtype == "D") %>% 
+  drop_na(currstatus) %>% 
+  mutate(currstatus = currstatus/100) %>% 
+  ggplot() +
+  geom_label_repel(aes(x = student_group_long, y = currstatus, fill = color, label = initials), 
+                   size = 3, color = "#444444", show.legend = F) +
+  scale_fill_manual(values = status_colors) +
+  scale_y_continuous(labels = scales::label_percent()) +
+  labs(title = "Chronic absenteeism among select student groups 
+       in Solano County Districts",
+       x = NULL,
+       y = "Percent of students",
+       caption = "Label color based on dashboard color for this indicator. 
+       Grey indicates that no color was assigned.
+       Groups with fewer than 11 students are supressed for privacy.
+       Source: 2024 CA Dashboard") +
+  theme_minimal()
+
+```
+
+```{r suspension}
+#| echo: false
+#| fig-height: 5
+
+dashboard %>% 
+  filter(student_group_long %in% c("All students", "English Learner", "Foster Youth", "Homeless Youth")) %>% 
+  filter(indicator == "suspension",
+         rtype == "D") %>% 
+  drop_na(currstatus) %>% 
+  mutate(currstatus = currstatus/100) %>% 
+  ggplot() +
+  geom_label_repel(aes(x = student_group_long, y = currstatus, fill = color, label = initials), 
+                   size = 3, color = "#444444", show.legend = F) +
+  scale_fill_manual(values = status_colors) +
+  scale_y_continuous(labels = scales::label_percent()) +
+  labs(title = "Suspension among select student groups 
+       in Solano County Districts",
+       x = NULL,
+       y = "Percent of students",
+       caption = "Label color based on dashboard color for this indicator. 
+       Grey indicates that no color was assigned.
+       Groups with fewer than 11 students are supressed for privacy.
+       Source: 2024 CA Dashboard") +
+  theme_minimal()
+
+```
+
+```{r ela_time}
+#| echo: false
+#| fig-height: 8
+
+dashboard_all %>% 
+  filter(student_group_long %in% c("All students", "English Learner", "Foster Youth", "Homeless Youth")) %>% 
+  filter(indicator == "ELA",
+         rtype == "D") %>% 
+  drop_na(currstatus) %>% 
+  ggplot() +
+  geom_line(aes(x = reportingyear, y = currstatus, group = student_group_long, color = student_group_long),
+            linewidth = 2) +
+  facet_wrap( ~initials, ncol = 2) + 
+  labs(title = "Student group performance in ELA in Solano County districts",
+       x = NULL,
+       y = "Distance from standard",
+       caption = "Groups with fewer than 11 students are supressed for privacy.
+       Source: 2024 CA Dashboard") +
+  theme_minimal()
+  
+```
+
+```{r math_time}
+#| echo: false
+#| fig-height: 8
+
+dashboard_all %>% 
+  filter(student_group_long %in% c("All students", "English Learner", "Foster Youth", "Homeless Youth")) %>% 
+  filter(indicator == "Math",
+         rtype == "D") %>% 
+  drop_na(currstatus) %>% 
+  ggplot() +
+  geom_line(aes(x = reportingyear, y = currstatus, group = student_group_long, color = student_group_long),
+            linewidth = 2) +
+  facet_wrap( ~initials, ncol = 2) + 
+  labs(title = "Student group performance in Math in Solano County districts",
+       x = NULL,
+       y = "Distance from standard",
+       caption = "Groups with fewer than 11 students are supressed for privacy.
+       Source: 2024 CA Dashboard") +
+  theme_minimal()
+  
+```
+
+```{r absent_time}
+#| echo: false
+#| fig-height: 8
+
+dashboard_all %>% 
+  filter(student_group_long %in% c("All students", "English Learner", "Foster Youth", "Homeless Youth")) %>%
+  filter(indicator == "absenteeism",
+         rtype == "D") %>% 
+  drop_na(currstatus) %>% 
+  mutate(currstatus = currstatus/100) %>% 
+  ggplot() +
+  geom_line(aes(x = reportingyear, y = currstatus, group = student_group_long, color = student_group_long),
+            linewidth = 2) +
+  scale_y_continuous(labels = scales::label_percent()) +
+  facet_wrap( ~initials, ncol = 2) + 
+  labs(title = "Chronic absenteeism by student group in Solano County districts",
+       x = NULL,
+       y = "Percent of students",
+       caption = "Groups with fewer than 11 students are supressed for privacy.
+       Source: 2024 CA Dashboard") +
+  theme_minimal()
+  
+```
+
+```{r suspension_time}
+#| echo: false
+#| fig-height: 8
+
+dashboard_all %>% 
+  filter(student_group_long %in% c("All students", "English Learner", "Foster Youth", "Homeless Youth")) %>%
+  filter(indicator == "suspension",
+         rtype == "D") %>% 
+  drop_na(currstatus) %>% 
+  mutate(currstatus = currstatus/100) %>% 
+  ggplot() +
+  geom_line(aes(x = reportingyear, y = currstatus, group = student_group_long, color = student_group_long),
+            linewidth = 2) +
+  scale_y_continuous(labels = scales::label_percent()) +
+  facet_wrap( ~initials, ncol = 2) + 
+  labs(title = "Suspension rates by student group in Solano County districts",
+       x = NULL,
+       y = "Percent of students",
+       caption = "Groups with fewer than 11 students are supressed for privacy.
+       Source: 2024 CA Dashboard") +
+  theme_minimal()
+  
+```
+
+```{r table}
+#| echo: false
+
+dashboard %>% 
+  filter(student_group_long %in% c("All students", "English Learner", "Foster Youth", "Homeless Youth")) %>% 
+  filter(indicator != "ELPI",
+         rtype == "D") %>% 
+  drop_na(currstatus) %>% 
+  mutate(currstatus = case_match(indicator,
+                                 "absenteeism" ~ paste0(currstatus, "%"),
+                                 "suspension" ~ paste0(currstatus, "%"),
+                                 "graduation" ~ paste0(currstatus, "%"),
+                                 .default = paste0(currstatus))) %>% 
+  select(initials, indicator, student_group_long, currstatus) %>% 
+  pivot_wider(names_from = student_group_long, values_from = currstatus) %>% 
+  flextable() %>% 
+  set_header_labels(values = list(
+    initials = "District",
+    indicator = "Indicator")) %>% 
+  width(width = c(1, 1.5, 1, 1, 1, 1))
+
+```

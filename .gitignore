@@ -1,0 +1,8 @@
+*.pdf
+*.xlsx
+*.docx
+*.html
+/data_output/
+.Rproj.user
+/data/full_dashboard.csv
+/data/ca_dashboard.csv
