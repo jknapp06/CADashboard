@@ -1,0 +1,163 @@
+---
+format:
+  docx:
+    fig-dpi: 300
+    fig-width: 7.5
+    reference-doc: scoe-are-report.docx
+editor: visual
+params:
+  lea: Travis Unified
+---
+
+```{r setup}
+#| include: false
+
+library(tidyverse)
+library(flextable)
+library(ggrepel)
+library(ggtext)
+
+dashboard <- read_csv("data/solano_dashboard.csv") %>% 
+  filter(rtype == "D" & districtname == params$lea |
+         charter_flag == "Y" & rtype == "S" & schoolname == params$lea) %>% 
+  select(reportingyear, districtname, schoolname, student_group_long, indicator, currdenom, currstatus, color, change, indicator_eligible) 
+  
+indicator_colors = c(
+  "ELA" = "#CC6677",
+  "Math" = "#882255",
+  "ELPI" = "#AA4499",
+  "college/career" = "#332288",
+  "graduation" = "#88CCEE",
+  "absenteeism" = "#44AA99",
+  "suspension" = "#117733",
+  "science" = "#DDCC77")
+
+da_groups <- 
+  dashboard %>% 
+  mutate(reportingyear = as_factor(reportingyear)) %>% 
+  filter(reportingyear %in% c(2024, 2023, 2022, 2019, 2018, 2017),
+         indicator_eligible == TRUE) %>% 
+  select(-indicator_eligible)
+
+long_da_groups <- 
+  da_groups %>%
+  select(reportingyear, districtname, schoolname, student_group_long, indicator) %>% 
+  arrange(reportingyear) %>% 
+  pivot_wider(names_from = reportingyear, values_from = indicator,
+              values_fn = list) %>% 
+  arrange(districtname, schoolname, student_group_long)%>%
+  mutate(across(where(is.list), ~ map_chr(., ~ paste(., collapse = "; "))),
+         da_years = rowSums(across(matches("^\\d{4}$"), ~ . != ""))) %>% 
+  filter(da_years >= 3) %>% 
+  mutate(`2019` = if("2019" %in% names(.))  `2019` else "") %>% 
+  select(districtname, student_group_long, `2019`, `2022`, `2023`, `2024`) 
+
+```
+
+```{r create_variables}
+#| include: false
+
+student_groups_list <- unique(long_da_groups$student_group_long)
+student_group_count <- length(student_groups_list)
+
+initials <-
+  switch(params$lea,
+         "Solano County Office of Education" = "SCOE",
+         "Benicia Unified" = "BUSD",
+         "Dixon Unified" = "DUSD",
+         "Fairfield-Suisun Unified" = "FSUSD",
+         "Travis Unified" = "TUSD",
+         "Vacaville Unified" = "VUSD",
+         "Vallejo City Unified" = "VCUSD",
+         "UNKNOWN")
+
+qualify <- ifelse(student_group_count >=3,
+               paste0(initials, " qualifies as three or more (", student_group_count, " in this case) have been eligible for DA for at least three out of four consecutive years. "),
+               paste(initials, "does not meet the three or more pupil student group requirement however the following student group(s) have been eligible for DA for at least three out of four consecutive years."))
+```
+
+# `r params$lea` 52072 Report
+
+## Ed Code Section 52072
+
+[ARTICLE 4.5. Local Control and Accountability Plans and the Statewide System of Support \[52059.5 - 52077\]](https://leginfo.legislature.ca.gov/faces/codes_displayText.xhtml?lawCode=EDC&division=4.&title=2.&part=28.&chapter=6.1.&article=4.5.)
+
+> *(a) If a school district meets the criteria established pursuant to subdivision (g) of Section 52064.5 for three or more pupil subgroups identified pursuant to Section 52052 ...in three out of four consecutive school years, the California Collaborative for Educational Excellence shall determine, in consultation with the school district and any provider of technical assistance pursuant to Section 52071, if assistance from the California Collaborative for Educational Excellence is necessary. When making this determination, primary consideration shall be given to the needs of the pupils in the school district.*
+>
+> *(b) Technical assistance provided pursuant to this section shall be facilitated by the California Collaborative for Educational Excellence, in collaboration with the county superintendent of schools with jurisdiction over the school district, and shall focus on building the school district’s capacity to develop and implement actions and services responsive to pupil and community needs pursuant to Section 52071 in a manner that streamlines improvement efforts for the school district.*
+
+`r qualify` Eligible indicators are listed for the previous four years used in qualifying each student group: 2019, 2022, 2023, 2024. The criteria being met by the student group(s) each year may not have been identical from year to year.
+
+```{r da_groups}
+#| echo: false
+
+names_groups <- names(long_da_groups)
+
+long_da_groups %>%
+  select(-districtname) %>%
+  flextable() %>%
+  set_header_labels(values = list("student_group_long" = "Student Group")) %>% 
+  width(width = 1.3) %>% 
+  add_header_row(values = c("Student Group", "DA Eligible Indicators"),
+                 colwidths = c(1, ncol(long_da_groups) - 2)) %>% 
+  merge_v(part = "header", j = 1) %>%
+  theme_vanilla() %>% 
+  align(align = "center", part = "header") %>% 
+  align(align = "left", part = "header", j = 1) %>% 
+  set_caption(paste(params$lea, "student groups eligible for DA three of the last four years."))
+
+
+```
+
+```{r student_groups}
+#| echo: false
+#| warning: false
+#| results: asis
+
+wrap_length <- 20
+
+for(group in student_groups_list){
+  
+  academic <- 
+    dashboard %>% 
+    filter(student_group_long == group) %>% 
+    filter(!(indicator %in% c("absenteeism", "graduation", "suspension", "college/career"))) %>% 
+    ggplot(aes(x = reportingyear, y = currstatus, group = indicator, color = indicator)) +
+    geom_line(linewidth = 1.3) +
+    geom_point(size = 2.2) +
+    geom_text_repel(aes(label = currstatus, color = indicator), 
+                    show.legend = FALSE)+
+    scale_color_manual(values = indicator_colors) +
+    labs(title = paste0("Status of **academic indicators** over time for<br>the **", group, "** student group in ", params$lea),
+         x = "Year",
+         y = "Status (Distance from Standard)",
+         color = "Indicator",
+         caption = "Colors not reflective of assigned Dashboard colors.") +
+    theme_minimal() +
+    theme(plot.title = element_markdown(hjust = 0.5, linewidth = wrap_length))
+  
+  nonacademic <- 
+    dashboard %>% 
+    filter(student_group_long == group) %>% 
+    filter(indicator %in% c("absenteeism", "graduation", "suspension", "college/career")) %>% 
+    ggplot(aes(x = reportingyear, y = currstatus/100, group = indicator, color = indicator)) +
+    geom_line(linewidth = 1.3) +
+    geom_point(size = 2.2) +
+    geom_text_repel(aes(label = paste0(currstatus,"%"), color = indicator), 
+                    show.legend = FALSE)+
+    scale_y_continuous(labels = scales::label_percent()) +
+    scale_color_manual(values = indicator_colors) +
+    labs(title = paste0("Status of **non-academic indicators** over time for<br>the **", group, "** student group in ", params$lea),
+         x = "Year",
+         y = "Status (Percent)",
+         color = "Indicator",
+         caption = "CCI only reported for 2019, 2023, and 2024, where applicable.") +
+    theme_minimal() +
+    theme(plot.title = element_markdown(hjust = 0.5, linewidth = wrap_length))
+  
+  print(academic)
+  print(nonacademic)
+  cat("\n\n")
+}
+
+```

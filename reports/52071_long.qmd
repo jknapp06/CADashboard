@@ -1,0 +1,69 @@
+---
+title: "Solano County Office of Education 52072 Analysis"
+subtitle: "Internal Use Only"
+format:
+  docx:
+    fig-dpi: 300
+    fig-width: 7.5
+    reference-doc: scoe-are-report.docx
+editor: visual
+---
+
+```{r setup}
+#| include: false
+
+library(tidyverse)
+library(flextable)
+
+dashboard <- read_csv("data/solano_dashboard.csv")
+
+```
+
+## Ed Code Section 52072
+
+[ARTICLE 4.5. Local Control and Accountability Plans and the Statewide System of Support \[52059.5 - 52077\]](https://leginfo.legislature.ca.gov/faces/codes_displayText.xhtml?lawCode=EDC&division=4.&title=2.&part=28.&chapter=6.1.&article=4.5.) (Heading of Article 4.5 amended by Stats. 2018, Ch. 32, Sec. 60. ) 52071. (f) For any school district in which one or more pupil subgroups, identified pursuant to Section 52052, meets the criteria pursuant to subdivision (g) of Section 52064.5 for three or more consecutive years, the school district's geographic lead agency, identified pursuant to Section 52073, shall, in collaboration with the county superintendent of schools, provide technical assistance to the school district pursuant to subdivision (c). The geographic lead agency shall evaluate whether the assistance of one or more expert lead agencies should be consulted as part of the technical assistance process.
+
+The table below lists LEAs and student groups that have been eligible for DA for three consecutive years. Eligible indicators are listed for of the previous four years used in qualifying the LEA: 2019, 2022, 2023, 2024. The criteria being met by the student groups each year may not have been identical from year to year.
+
+```{r da_groups}
+#| echo: false
+
+da_groups <- 
+  dashboard %>% 
+  filter(reportingyear %in% c(2024, 2023, 2022, 2019, 2018, 2017),
+         indicator_eligible == TRUE,
+         rtype == "D" |
+         charter_flag == "Y" & rtype == "S") %>% 
+  select(reportingyear, districtname, schoolname, student_group_long, indicator) %>%
+  arrange(reportingyear) %>% 
+  pivot_wider(names_from = reportingyear, values_from = indicator,
+              values_fn = list) %>% 
+  arrange(districtname, schoolname, student_group_long)%>%
+  mutate(across(where(is.list), ~ map_chr(., ~ paste(., collapse = "; "))))
+
+da_groups %>% 
+  mutate(da_years = rowSums(across(c(`2019`, `2022`, `2023`, `2024`), ~ . != ""))) %>% 
+  filter(da_years >= 2) %>% 
+  select(-schoolname, -da_years) %>% 
+  flextable() %>% 
+  merge_v(j = c("districtname"), combine = T) %>% 
+  set_header_labels(values = list("districtname" = "District",
+                                  "student_group_long" = "Student Group",
+                                  "da_years" = "DA Years",
+                                  "2019" = "Eligible indicators: 2019",
+                                  "2022" = "Eligible indicators: 2022",
+                                  "2023" = "Eligible indicators: 2023",
+                                  "2024" = "Eligible indicators: 2024")) %>% 
+  width(width = 1.3) %>% 
+  theme_vanilla()
+
+```
+
+Charter schools were not eligible for DA in 2022-23, so there are no charters that are included in this list for the year 2024-25.
+
+```{r write_csv}
+#| include: false
+
+write_csv(da_groups, "data/da_groups_long.csv")
+
+```
