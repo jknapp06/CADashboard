@@ -7,58 +7,154 @@ library(tidyr)
 
 # normalize_assistance_files: reads assistance_xlsx tibbles and maps to canonical column names
 # Input: named list of tibbles (raw reads). Output: single canonical assistance tibble.
+# some assistance files do no have a reportingyear column. For those, we need to add it based on the file source.
 normalize_assistance <- function(raw_list) {
-  # helper to select & rename per file variation
-  fix_one <- function(df) {
-    df_names <- names(df)
-    df |>
-      rename_with(~ str_to_lower(.x)) |>
-      rename(
-        cds = dplyr::any_of(c("cds", "c_d_s", "schoolcode")),
-        grades_offered = dplyr::any_of(c("gsoffered", "gsoffered")),
-        reportingyear = dplyr::any_of(c(
-          "reportingyear",
-          "reporting_year",
-          "reportingyear"
-        )),
-        assistance_status = dplyr::any_of(c(
-          "assistancestatus2024",
-          "assistancestatus2023",
-          "assistancestatus2022",
-          "assistancestatus2019",
-          "assistancestatus2018",
-          "assistance_status",
-          "assistance_status2018",
-          "assistance_status2019"
-        ))
-      ) |>
-      # keep any columns ending with priorities (case-insensitive)
-      select(
-        cds,
-        grades_offered,
-        reportingyear,
-        assistance_status,
-        tidyselect::matches("(?i)priorities")
-      ) |>
-      # ensure reportingyear exists
-      mutate(reportingyear = as.character(reportingyear))
+  # Validate input
+  if (!is.list(raw_list)) {
+    stop("Input must be a list of data frames")
   }
-  dplyr::bind_rows(lapply(raw_list, fix_one)) |>
+
+  # Log the number of input files
+  message("Normalizing assistance data from ", length(raw_list), " files")
+
+  # Helper function with more robust error handling
+  fix_one <- function(df, file_index) {
+    # Validate each input data frame
+    if (!is.data.frame(df)) {
+      warning("Item ", file_index, " is not a data frame. Skipping.")
+      return(NULL)
+    }
+
+    # Get column names
+    df_names <- names(df)
+
+    # More robust year detection with explicit checks
+    assistance_year <- NA_integer_
+    assistance_variable_name <- NA_character_
+
+    # Prioritized year detection
+    year_checks <- list(
+      "assistance_status2024" = 2024,
+      "assistance_status2023" = 2023,
+      "assistance_status2022" = 2022,
+      "assistance_status2019" = 2019,
+      "assistance_status2018" = 2018,
+      "assistance_status" = 2017
+    )
+
+    for (col_name in names(year_checks)) {
+      if (col_name %in% df_names) {
+        assistance_year <- year_checks[[col_name]]
+        assistance_variable_name <- if (assistance_year == 2017) {
+          "assistance_status"
+        } else {
+          paste0("assistance_status", assistance_year)
+        }
+        break
+      }
+    }
+
+    # Throw an error if no year could be detected
+    if (is.na(assistance_year)) {
+      stop("Could not determine assistance year for file ", file_index)
+    }
+
+    # Detailed logging
+    message(
+      "Processing file ",
+      file_index,
+      ": Detected year ",
+      assistance_year,
+      ", Using variable ",
+      assistance_variable_name
+    )
+
+    # Attempt to process the file with error handling
+    tryCatch(
+      {
+        processed_df <- df |>
+          # Add reportingyear and pick only the most recent assistance status column
+          mutate(
+            reportingyear = assistance_year,
+            # Safely select the assistance status column
+            assistance_status = if (assistance_variable_name %in% names(df)) {
+              .data[[assistance_variable_name]]
+            } else {
+              NA_character_
+            }
+          ) |>
+          # Flexible renaming of grades offered column
+          rename(
+            grades_offered = dplyr::any_of(c(
+              "gsoffered",
+              "gradesoffered",
+              "grades_offered"
+            ))
+          ) |>
+          # Keep key columns and any columns ending with priorities
+          select(
+            cds,
+            grades_offered,
+            reportingyear,
+            assistance_status,
+            tidyselect::matches("(?i)priorities")
+          )
+
+        # Validate key columns
+        if (!"cds" %in% names(processed_df)) {
+          warning("File ", file_index, " is missing 'cds' column")
+        }
+
+        return(processed_df)
+      },
+      error = function(e) {
+        warning("Error processing file ", file_index, ": ", e$message)
+        return(NULL)
+      }
+    )
+  }
+
+  # Process all files, filtering out any NULL results
+  processed_files <- Filter(
+    Negate(is.null),
+    lapply(seq_along(raw_list), function(i) fix_one(raw_list[[i]], i))
+  )
+
+  # Check if any files were successfully processed
+  if (length(processed_files) == 0) {
+    stop("No files could be processed")
+  }
+  # Bind rows and perform final transformations
+  result <- dplyr::bind_rows(processed_files) |>
+    # Pivot priorities columns
     pivot_longer(
-      cols = matches("(?i)priorities"),
+      cols = ends_with("priorities"),
       names_to = "studentgroup",
       values_to = "assistance",
-      names_pattern = "(.*)priorities",
-      values_drop_na = TRUE
+      names_pattern = "(.*)priorities"
     ) |>
     mutate(
       studentgroup = if_else(
-        studentgroup == "TOM",
+        studentgroup == "tom",
         "MR",
-        str_remove_all(studentgroup, "_")
+        str_to_upper(str_remove_all(studentgroup, "_"))
       )
-    )
+    ) |>
+    # Drop rows with NA assistance
+    drop_na(assistance)
+
+  # Log final results
+  message(
+    "Normalized assistance data: ",
+    nrow(result),
+    " rows, ",
+    n_distinct(result$cds),
+    " unique CDSs"
+  )
+
+  return(result)
 }
+
 
 # normalize_essa: canonicalize ESSA files, pivot and compute ATSI and CSI summaries
 # Input: list of raw essa tibbles (as returned by load_essa_xlsx)
@@ -85,10 +181,10 @@ normalize_essa <- function(raw_list) {
   )
   grp_present <- intersect(names(essa_all), grp_cols)
 
-  if (length(grp_present)) {
-    essa_all <- essa_all |>
-      mutate(across(all_of(grp_present), ~ readr::parse_number(.x)))
-  }
+  # if (length(grp_present)) {
+  #   essa_all <- essa_all |>
+  #     mutate(across(all_of(grp_present), ~ readr::parse_number(.x)))
+  # }
 
   # normalize key names and pivot long for ATSI support
   essa_all |>
@@ -100,21 +196,32 @@ normalize_essa <- function(raw_list) {
       countyname = dplyr::any_of(c("countyname", "county_name"))
     ) |>
     pivot_longer(
-      cols = intersect(names(.), grp_cols),
-      names_to = "studentGroup",
-      values_to = "ATSIsupport"
+      cols = intersect(names(essa_all), grp_cols),
+      names_to = "studentgroup",
+      values_to = "atsi_support"
     )
 }
 
 # compute_priority4_summary: from ca dashboard-with-assistance, compute priority 4 CAASPP/ELPI eligibility
 compute_priority4_summary <- function(df) {
-  df |>
-    filter(priority == 4, priority_eligible == TRUE) |>
+  filtered_df <-
+    df |>
+    filter(priority == 4, priority_eligible == TRUE)
+
+  # debugging message: print number of rows after filtering and unique indicators
+  # message(
+  #   "Computing priority 4 summary: ",
+  #   nrow(filtered_df),
+  #   " rows after filtering. Columns: ",
+  #   paste(names(filtered_df), collapse = ", ")
+  # )
+
+  filtered_df |>
     mutate(
       color = dplyr::case_when(
         reportingyear == 2022 ~ statuslevel,
         reportingyear == 2024 & indicator == "science" ~ currstatus,
-        TRUE ~ color
+        .default = color
       )
     ) |>
     select(reportingyear, cds, student_group_long, indicator, color) |>
@@ -127,20 +234,17 @@ compute_priority4_summary <- function(df) {
 }
 
 # priority_eligibility_lookup: returns tibble mapping assistance -> allowed priorities
-priority_eligibility_lookup <- function() {
-  tibble::tribble(
-    ~assistance , ~priorities         ,
-    "A"         , list(c(4, 5, 6))    ,
-    "B"         , list(c(4, 5))       ,
-    "C"         , list(c(5, 6))       ,
-    "D"         , list(c(4, 6))       ,
-    "E"         , list(c(4, 8))       ,
-    "F"         , list(c(5, 8))       ,
-    "G"         , list(c(6, 8))       ,
-    "H"         , list(c(4, 5, 8))    ,
-    "I"         , list(c(4, 6, 8))    ,
-    "J"         , list(c(5, 6, 8))    ,
-    "K"         , list(c(4, 5, 6, 8))
-  ) |>
-    tidyr::unnest_longer(priorities)
-}
+priority_eligibility_lookup <- tibble::tribble(
+  ~assistance , ~priorities   ,
+  "A"         , c(4, 5, 6)    ,
+  "B"         , c(4, 5)       ,
+  "C"         , c(5, 6)       ,
+  "D"         , c(4, 6)       ,
+  "E"         , c(4, 8)       ,
+  "F"         , c(5, 8)       ,
+  "G"         , c(6, 8)       ,
+  "H"         , c(4, 5, 8)    ,
+  "I"         , c(4, 6, 8)    ,
+  "J"         , c(5, 6, 8)    ,
+  "K"         , c(4, 5, 6, 8)
+)

@@ -53,7 +53,7 @@ assistance_urls <- list(
 essa_urls <- list(
   essa24 = "https://www.cde.ca.gov/sp/sw/t1/documents/essaassistance24.xlsx",
   essa23 = "https://www.cde.ca.gov/sp/sw/t1/documents/essaassistance23.xlsx",
-  essa22 = "https://www3.cde.ca.gov/researchfiles/cadashboard/essaassistance22.xlsx", # double-check if needed
+  essa22 = "https://www.cde.ca.gov/sp/sw/t1/documents/essaassistance22.xlsx", # double-check if needed
   essa21 = "https://www.cde.ca.gov/sp/sw/t1/documents/essaassistance21.xlsx",
   essa19 = "https://www.cde.ca.gov/sp/sw/t1/documents/essaassistance19.xlsx",
   essa18 = "https://www.cde.ca.gov/sp/sw/t1/documents/scheligibilitystate.xlsx"

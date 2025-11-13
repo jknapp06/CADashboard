@@ -10,8 +10,8 @@ library(duckdb)
 # Open connection once
 # con <- dbConnect(duckdb(), dbdir = "path/to/ca_education.duckdb")
 
-# assistance_25_url <- "https://www.cde.ca.gov/fg/aa/lc/documents/assistancestatus25.xlsx"
-# assistance_25_charter_url <- "https://www.cde.ca.gov/fg/aa/lc/documents/charterassistance25.xlsx"
+assistance_25_url <- "https://www.cde.ca.gov/fg/aa/lc/documents/assistancestatus25.xlsx"
+assistance_25_charter_url <- "https://www.cde.ca.gov/fg/aa/lc/documents/charterassistance25.xlsx"
 assistance_24_url <- "https://www.cde.ca.gov/fg/aa/lc/documents/assistancestatus24.xlsx"
 assistance_24_charter_url <- "https://www.cde.ca.gov/fg/aa/lc/documents/charterassistance24.xlsx"
 assistance_23_url <- "https://www.cde.ca.gov/fg/aa/lc/documents/assistancestatus23.xlsx"
