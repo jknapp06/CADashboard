@@ -1,6 +1,6 @@
 ---
 title: "Solano County Dashboard Summary"
-subtitle: "2024"
+subtitle: "2025"
 author: SCOE Assessment Research and Evaluation
 format:
   pptx:
@@ -22,8 +22,8 @@ library(showtext)
 
 # webshot::install_phantomjs()
 
-dashboard <- read_csv("data/solano_dashboard.csv") |>
-  filter(countyname == "Solano", reportingyear == 2024) |>
+dashboard <- read_csv("../data/solano_dashboard.csv") |>
+  filter(countyname == "Solano", reportingyear == 2025) |>
   mutate(
     color = as_factor(color),
     color = fct_relevel(color, "0", "1", "2", "3", "4", "5"),
@@ -123,8 +123,8 @@ dashboard <- read_csv("data/solano_dashboard.csv") |>
     )
   )
 
-district_geo <- read_sf("data/California_School_District_Areas_2022-23.geojson")
-school_geo <- read_sf("data/California_Schools_2022-23.geojson")
+district_geo <- read_sf("../data/Solano_School_District_Areas_2024-25.geojson")
+school_geo <- read_sf("../data/Solano_SchoolSites2425.geojson")
 
 district_geo <-
   district_geo |>

@@ -34,6 +34,7 @@ normalize_assistance <- function(raw_list) {
 
     # Prioritized year detection
     year_checks <- list(
+      "assistance_status2025" = 2025,
       "assistance_status2024" = 2024,
       "assistance_status2023" = 2023,
       "assistance_status2022" = 2022,

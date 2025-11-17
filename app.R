@@ -4,7 +4,6 @@ library(shiny)
 library(tidyverse)
 library(vroom)
 library(DT)
-library(wesanderson)
 library(plotly)
 # library(sf)
 # library(leaflet)
@@ -125,38 +124,38 @@ status_colors <- c(
   "darkslategrey"
 )
 
-solano_csi <-
-  dashboard |>
-  select(
-    reportingyear,
-    countyname,
-    districtname,
-    schoolname,
-    Charter,
-    student_group_long,
-    assistance_status,
-    starts_with("CSI"),
-    ATSIsupport
-  ) |>
-  filter(reportingyear == "2024", countyname == "Solano") |>
-  mutate(
-    student_group_wrap = str_wrap(student_group_long, 25),
-    ATSIsupport = if_else(ATSIsupport == 1, "Eligible", "Not Eligible")
-  ) |>
-  pivot_longer(
-    cols = c(
-      CSI_2018,
-      CSI_2019,
-      # CSI_2020,
-      CSI_2021,
-      CSI_2022,
-      CSI_2023,
-      CSI_2024
-    ),
-    names_prefix = "CSI_",
-    names_to = "year",
-    values_to = "csi_status"
-  )
+# solano_csi <-
+#   dashboard |>
+#   select(
+#     reportingyear,
+#     countyname,
+#     districtname,
+#     schoolname,
+#     charter_flag,
+#     student_group_long,
+#     assistance_status,
+#     starts_with("csi"),
+#     atsi_support
+#   ) |>
+#   filter(reportingyear == "2024", countyname == "Solano") |>
+#   mutate(
+#     student_group_wrap = str_wrap(student_group_long, 25),
+#     atsi_support = if_else(atsi_support == 1, "Eligible", "Not Eligible")
+#   ) |>
+#   pivot_longer(
+#     cols = c(
+#       CSI_2018,
+#       CSI_2019,
+#       # CSI_2020,
+#       CSI_2021,
+#       CSI_2022,
+#       CSI_2023,
+#       CSI_2024
+#     ),
+#     names_prefix = "CSI_",
+#     names_to = "year",
+#     values_to = "csi_status"
+#   )
 
 #########################
 #                       #
@@ -181,7 +180,7 @@ ui <- navbarPage(
           "year",
           label = "Select Reporting Year",
           choices = years$reportingyear,
-          selected = "2024"
+          selected = "2025"
         ),
         selectInput(
           "county",
@@ -278,34 +277,35 @@ ui <- navbarPage(
         DT::dataTableOutput("county_da_table")
       )
     )
-  ),
-  tabPanel(
-    "ESSA Eligibility",
-    sidebarLayout(
-      sidebarPanel(
-        checkboxGroupInput(
-          "essa_districts",
-          choices = unique(solano_csi$districtname),
-          selected = unique(solano_csi$districtname),
-          label = "District"
-        ),
-        selectInput(
-          "essa_charters",
-          label = "Include charter schools?",
-          choices = c("All schools", "No charters", "Only charters"),
-          selected = "All schools"
-        )
-      ),
-
-      # Show a plot of the generated distribution
-      mainPanel(
-        tabsetPanel(
-          tabPanel("CSI", plotOutput("csi_plot")),
-          tabPanel("ATSI", plotOutput("atsi_plot"))
-        )
-      )
-    )
   )
+  # ,
+  # tabPanel(
+  #   "ESSA Eligibility",
+  #   sidebarLayout(
+  #     sidebarPanel(
+  #       checkboxGroupInput(
+  #         "essa_districts",
+  #         choices = unique(solano_csi$districtname),
+  #         selected = unique(solano_csi$districtname),
+  #         label = "District"
+  #       ),
+  #       selectInput(
+  #         "essa_charters",
+  #         label = "Include charter schools?",
+  #         choices = c("All schools", "No charters", "Only charters"),
+  #         selected = "All schools"
+  #       )
+  #     ),
+
+  #     # Show a plot of the generated distribution
+  #     mainPanel(
+  #       tabsetPanel(
+  #         tabPanel("CSI", plotOutput("csi_plot")),
+  #         tabPanel("ATSI", plotOutput("atsi_plot"))
+  #       )
+  #     )
+  #   )
+  # )
   # ,
   #   tabPanel("Map",
   #          sidebarLayout(

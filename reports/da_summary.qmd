@@ -12,21 +12,30 @@ editor: visual
 warning: false
 ---
 
-![](www/SCOE_Logo.jpg){fig-align="right" width="127"}
+![](../www/SCOE_Logo.jpg){fig-align="right" width="127"}
 
 # Solano County Differentiated Assistance Summary 2024
 
 ```{r setup, include = FALSE}
 library(tidyverse)
 library(flextable)
-library(wesanderson)
 
-dashboard <- read_csv("data/ca_dashboard.csv") %>% 
-  filter(countyname == "Solano") %>% 
-  mutate(reportingyear = fct_relevel(as_factor(reportingyear), "2019", "2020", "2021", "2022", "2023", "2024"),
-         indicator = as_factor(indicator))
+dashboard <- read_csv("../data/ca_dashboard.csv") %>%
+  filter(countyname == "Solano") %>%
+  mutate(
+    reportingyear = fct_relevel(
+      as_factor(reportingyear),
+      "2019",
+      "2020",
+      "2021",
+      "2022",
+      "2023",
+      "2024"
+    ),
+    indicator = as_factor(indicator)
+  )
 
-chart_colors = c("#332288", "#7755BB", "#BB77DD")
+chart_colors = c("#332288", "#7755BB", "#BB77DD", "#DDCCFF", "#FFDDFF")
 all_years_color = "darkorchid"
 ```
 
@@ -39,14 +48,14 @@ all_years_color = "darkorchid"
 #| cap-location: bottom
 
 # DA Districts for each year
-dashboard %>% 
-  filter(priority_eligible) %>% 
-  distinct(rtype, cds, reportingyear) %>% 
-  group_by(reportingyear) %>% 
-  count(rtype, reportingyear) %>% 
-  pivot_wider(names_from = reportingyear, values_from = n) %>% 
-  mutate(rtype = if_else(rtype == "D", "Districts", "Charter Schools")) %>% 
-  rename(" " = rtype) %>% 
+dashboard %>%
+  filter(priority_eligible) %>%
+  distinct(rtype, cds, reportingyear) %>%
+  group_by(reportingyear) %>%
+  count(rtype, reportingyear) %>%
+  pivot_wider(names_from = reportingyear, values_from = n) %>%
+  mutate(rtype = if_else(rtype == "D", "Districts", "Charter Schools")) %>%
+  rename(" " = rtype) %>%
   flextable()
 ```
 
@@ -59,12 +68,12 @@ Table 1 shows the counts of LEAs eligible for Differentiated Assistance (DA) for
 #| cap-location: bottom
 
 # # DA Eligibility by priority
-# dashboard %>% 
+# dashboard %>%
 #   filter(priority_eligible, rtype == "D") %>%
-#     distinct(cds, reportingyear, priority) %>% 
-#   group_by(reportingyear, priority) %>% 
-#   count() %>% 
-#   # pivot_wider(names_from = reportingyear, values_from = n) %>% 
+#     distinct(cds, reportingyear, priority) %>%
+#   group_by(reportingyear, priority) %>%
+#   count() %>%
+#   # pivot_wider(names_from = reportingyear, values_from = n) %>%
 #   ggplot() +
 #   geom_col(mapping = aes(x = as_factor(priority), y = n, fill = as_factor(reportingyear)),
 #            position = "dodge") +
@@ -72,31 +81,43 @@ Table 1 shows the counts of LEAs eligible for Differentiated Assistance (DA) for
 #   theme_minimal()
 
 # DA Eligibility by indicator
-dashboard %>% 
-  filter(indicator_eligible, rtype == "D",
-         reportingyear %in% c("2019", "2022", "2023", "2024")) %>%
-    distinct(cds, reportingyear, indicator) %>% 
-  group_by(reportingyear, indicator) %>% 
-  count() %>% 
-  # pivot_wider(names_from = reportingyear, values_from = n) %>% 
+dashboard %>%
+  filter(
+    indicator_eligible,
+    rtype == "D",
+    reportingyear %in% c("2019", "2022", "2023", "2024")
+  ) %>%
+  distinct(cds, reportingyear, indicator) %>%
+  group_by(reportingyear, indicator) %>%
+  count() %>%
+  # pivot_wider(names_from = reportingyear, values_from = n) %>%
   ggplot() +
-  geom_col(mapping = aes(x = as_factor(indicator), y = n, fill = as_factor(reportingyear)),
-           position = "dodge") +
+  geom_col(
+    mapping = aes(
+      x = as_factor(indicator),
+      y = n,
+      fill = as_factor(reportingyear)
+    ),
+    position = "dodge"
+  ) +
   scale_fill_manual(values = chart_colors) +
-  labs(fill = "Year", x = NULL, 
-       y = "Districts Eligible for DA",
-       title = "Count of districts eligible for DA \nfor each indicator") +
+  labs(
+    fill = "Year",
+    x = NULL,
+    y = "Districts Eligible for DA",
+    title = "Count of districts eligible for DA \nfor each indicator"
+  ) +
   theme_minimal() +
-  theme(title = element_text(size = 20),
-      axis.text.x = element_text(size = 12, vjust = 1, 
-                                 hjust = 1, angle = 45),
-      axis.text.y = element_text(size = 12),
-      axis.title.x = element_text(size = 14),
-      axis.title.y = element_text(size = 14),
-      strip.text = element_text(size = 12),
-      legend.title = element_text(size = 14),
-      legend.text = element_text(size = 12),
-      plot.caption = element_text(size = 12)
+  theme(
+    title = element_text(size = 20),
+    axis.text.x = element_text(size = 12, vjust = 1, hjust = 1, angle = 45),
+    axis.text.y = element_text(size = 12),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    strip.text = element_text(size = 12),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12),
+    plot.caption = element_text(size = 12)
   )
 
 ```
@@ -113,11 +134,11 @@ The college/career indicator was not reported in 2022 so no districts were eligi
 #| cap-location: bottom
 
 # DA by student_group and indicator
-# dashboard %>% 
-#   filter(rtype == "D", priority_eligible == TRUE) %>% 
-#   group_by(indicator, student_group_long, reportingyear) %>% 
+# dashboard %>%
+#   filter(rtype == "D", priority_eligible == TRUE) %>%
+#   group_by(indicator, student_group_long, reportingyear) %>%
 #   count() %>%
-#   pivot_wider(names_from = indicator, values_from = n) %>% 
+#   pivot_wider(names_from = indicator, values_from = n) %>%
 #   flextable()
 
 # dashboard %>%
@@ -141,28 +162,32 @@ dashboard %>%
   filter(rtype == "D", indicator_eligible == TRUE) %>%
   group_by(student_group_long, reportingyear) %>%
   count(indicator) %>%
-  arrange(rev(reportingyear)) %>% 
+  arrange(rev(reportingyear)) %>%
   ggplot(mapping = aes(x = n, y = reorder(student_group_long, n))) +
-  geom_col(aes(fill = as_factor(reportingyear)),
-           position = "dodge") +
+  geom_col(aes(fill = as_factor(reportingyear)), position = "dodge") +
   scale_fill_manual(values = chart_colors) +
-  labs(fill = "Year", x = "Number of Districts Eligible for DA", 
-       y = NULL, title = "DA Eligible Districts \nby Student Groups") +
+  labs(
+    fill = "Year",
+    x = "Number of Districts Eligible for DA",
+    y = NULL,
+    title = "DA Eligible Districts \nby Student Groups"
+  ) +
   theme_minimal() +
-  theme(title = element_text(size = 20),
-      axis.text.x = element_text(size = 12),
-      axis.text.y = element_text(size = 12),
-      axis.title.x = element_text(size = 14),
-      axis.title.y = element_text(size = 14),
-      strip.text = element_text(size = 12),
-      legend.title = element_text(size = 14),
-      legend.text = element_text(size = 12),
-      plot.caption = element_text(size = 12)
-  ) 
+  theme(
+    title = element_text(size = 20),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    strip.text = element_text(size = 12),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12),
+    plot.caption = element_text(size = 12)
+  )
 
-# da_groups %>% 
+# da_groups %>%
 #   ggplot() +
-#   geom_line(mapping = aes(x = reportingyear, y = n)) + 
+#   geom_line(mapping = aes(x = reportingyear, y = n)) +
 #   facet_grid(indicator ~ student_group_long) +
 #   theme_minimal()
 ```
@@ -176,34 +201,38 @@ The length of the bars in the chart above refers to the number of districts elig
 
 # Academic small multiples
 dashboard %>%
-  filter(rtype == "D", 
-         priority_eligible == TRUE, 
-         priority == 4) %>%
+  filter(rtype == "D", priority_eligible == TRUE, priority == 4) %>%
   group_by(student_group_long, reportingyear) %>%
   summarize(n = n_distinct(districtname)) %>%
   ungroup() %>%
   complete(nesting(student_group_long), reportingyear, fill = list(n = 0)) %>%
   # flextable()
   ggplot() +
-  geom_line(mapping = aes(x = reportingyear, y = n, group = student_group_long),
-            linewidth = 1.5,
-            color = all_years_color,
-           position = "dodge") +
-  facet_wrap(~ student_group_long) +
-  labs(x = "Year", y = "Count of Districts Eligible for DA",
-       title = "Count of districts where academic indicators\nfactored into DA eligibility") +
+  geom_line(
+    mapping = aes(x = reportingyear, y = n, group = student_group_long),
+    linewidth = 1.5,
+    color = all_years_color,
+    position = "dodge"
+  ) +
+  facet_wrap(~student_group_long) +
+  labs(
+    x = "Year",
+    y = "Count of Districts Eligible for DA",
+    title = "Count of districts where academic indicators\nfactored into DA eligibility"
+  ) +
   scale_y_continuous(labels = scales::label_number(accuracy = 1)) +
   # scale_x_continuous() +
   theme_minimal() +
-  theme(title = element_text(size = 20),
-      axis.text.x = element_text(size = 12),
-      axis.text.y = element_text(size = 12),
-      axis.title.x = element_text(size = 14),
-      axis.title.y = element_text(size = 14),
-      strip.text = element_text(size = 12),
-      legend.title = element_text(size = 14),
-      legend.text = element_text(size = 12),
-      plot.caption = element_text(size = 12)
+  theme(
+    title = element_text(size = 20),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    strip.text = element_text(size = 12),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12),
+    plot.caption = element_text(size = 12)
   )
 
 ```
@@ -217,34 +246,42 @@ The graphs above show the numbers of districts eligible for DA based in part on 
 
 # Absenteeism small multiples
 dashboard %>%
-  filter(rtype == "D", 
-         indicator_eligible == TRUE, 
-         indicator == "absenteeism") %>%
+  filter(
+    rtype == "D",
+    indicator_eligible == TRUE,
+    indicator == "absenteeism"
+  ) %>%
   group_by(student_group_long, reportingyear) %>%
   summarize(n = n_distinct(districtname)) %>%
   ungroup() %>%
   complete(nesting(student_group_long), reportingyear, fill = list(n = 0)) %>%
   # flextable()
   ggplot() +
-  geom_line(mapping = aes(x = reportingyear, y = n, group = student_group_long),
-            linewidth = 1.5,
-            color = all_years_color,
-           position = "dodge") +
-  facet_wrap(~ student_group_long, ncol = 3) +
-  labs(x = "Year", y = "Count of Districts Eligible for DA",
-       title = "Count of districts where chronic absenteeism\nfactored into DA eligibility") +
+  geom_line(
+    mapping = aes(x = reportingyear, y = n, group = student_group_long),
+    linewidth = 1.5,
+    color = all_years_color,
+    position = "dodge"
+  ) +
+  facet_wrap(~student_group_long, ncol = 3) +
+  labs(
+    x = "Year",
+    y = "Count of Districts Eligible for DA",
+    title = "Count of districts where chronic absenteeism\nfactored into DA eligibility"
+  ) +
   scale_y_continuous(labels = scales::label_number(accuracy = 1)) +
   # scale_x_continuous() +
   theme_minimal() +
-  theme(title = element_text(size = 20),
-      axis.text.x = element_text(size = 12),
-      axis.text.y = element_text(size = 12),
-      axis.title.x = element_text(size = 14),
-      axis.title.y = element_text(size = 14),
-      strip.text = element_text(size = 12),
-      legend.title = element_text(size = 14),
-      legend.text = element_text(size = 12),
-      plot.caption = element_text(size = 12)
+  theme(
+    title = element_text(size = 20),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    strip.text = element_text(size = 12),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12),
+    plot.caption = element_text(size = 12)
   )
 
 ```
@@ -256,48 +293,64 @@ The graphs above show the numbers of districts eligible for DA based in part on 
 #| echo: FALSE
 #| fig-height: 5
 
-summary_absenteeism <- 
-  dashboard %>% 
-  filter(rtype == "D",
-         indicator == "absenteeism",
-         student_group_long == "All students") %>%
-  drop_na(currstatus) %>% 
+summary_absenteeism <-
+  dashboard %>%
+  filter(
+    rtype == "D",
+    indicator == "absenteeism",
+    student_group_long == "All students"
+  ) %>%
+  drop_na(currstatus) %>%
   group_by(reportingyear) %>%
-  summarise(mean_status = mean(currstatus),
-            median_status = median(currstatus))
+  summarise(mean_status = mean(currstatus), median_status = median(currstatus))
 
 # Absenteeism status small multiples
 dashboard %>%
-  filter(rtype == "D",
-         indicator == "absenteeism") %>%
+  filter(rtype == "D", indicator == "absenteeism") %>%
   # flextable()
   ggplot() +
-  geom_density(mapping = aes(x = currstatus, group = reportingyear,
-            fill = reportingyear),
-            color = "black") +
-  facet_wrap(~ reportingyear, ncol = 3) +
-  labs(x = "Percentage of student group chronically absent", y = "Percent of all student groups",
-       title = "Distribution of student groups' \nchronic absenteeism rates",
-       fill = "Year",
-       caption = 'Vertical line shows the median rate of 
-       chronic absenteeism for the "All students" group in all districts.') +
+  geom_density(
+    mapping = aes(x = currstatus, group = reportingyear, fill = reportingyear),
+    color = "black"
+  ) +
+  facet_wrap(~reportingyear, ncol = 3) +
+  labs(
+    x = "Percentage of student group chronically absent",
+    y = "Percent of all student groups",
+    title = "Distribution of student groups' \nchronic absenteeism rates",
+    fill = "Year",
+    caption = 'Vertical line shows the median rate of 
+       chronic absenteeism for the "All students" group in all districts.'
+  ) +
   scale_y_continuous(labels = scales::label_percent()) +
   scale_fill_manual(values = chart_colors) +
   # scale_x_continuous() +
   # geom_vline(data = summary_absenteeism, mapping = aes(xintercept = mean_status), color = "darkblue") +
   # geom_label(data = summary_absenteeism, mapping = aes(x = mean_status, y = 0.04, label = paste0(round(mean_status, 1),"%"))) +
-  geom_vline(data = summary_absenteeism, mapping = aes(xintercept = median_status), color = "darkblue") +
-  geom_label(data = summary_absenteeism, mapping = aes(x = median_status, y = 0.04, label = paste0(round(median_status, 1),"%"))) +
+  geom_vline(
+    data = summary_absenteeism,
+    mapping = aes(xintercept = median_status),
+    color = "darkblue"
+  ) +
+  geom_label(
+    data = summary_absenteeism,
+    mapping = aes(
+      x = median_status,
+      y = 0.04,
+      label = paste0(round(median_status, 1), "%")
+    )
+  ) +
   theme_minimal() +
-  theme(title = element_text(size = 20),
-      axis.text.x = element_text(size = 12),
-      axis.text.y = element_text(size = 12),
-      axis.title.x = element_text(size = 14),
-      axis.title.y = element_text(size = 14),
-      strip.text = element_text(size = 12),
-      legend.title = element_text(size = 14),
-      legend.text = element_text(size = 12),
-      plot.caption = element_text(size = 12)
+  theme(
+    title = element_text(size = 20),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    strip.text = element_text(size = 12),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12),
+    plot.caption = element_text(size = 12)
   )
 
 ```
@@ -311,34 +364,42 @@ The above figure shows three years of chronic absenteeism rates. Each graph show
 
 # Suspension small multiples
 dashboard %>%
-  filter(rtype == "D", 
-         indicator_eligible == TRUE, 
-         indicator == "suspension") %>%
+  filter(
+    rtype == "D",
+    indicator_eligible == TRUE,
+    indicator == "suspension"
+  ) %>%
   group_by(student_group_long, reportingyear) %>%
   summarize(n = n_distinct(districtname)) %>%
   ungroup() %>%
   complete(nesting(student_group_long), reportingyear, fill = list(n = 0)) %>%
   # flextable()
   ggplot() +
-  geom_line(mapping = aes(x = reportingyear, y = n, group = student_group_long),
-            linewidth = 1.5,
-            color = all_years_color,
-           position = "dodge") +
-  facet_wrap(~ student_group_long, ncol = 3) +
-  labs(x = "Year", y = "Count of Districts Eligible for DA",
-       title = "Count of districts where suspension\nfactored into DA eligibility") +
+  geom_line(
+    mapping = aes(x = reportingyear, y = n, group = student_group_long),
+    linewidth = 1.5,
+    color = all_years_color,
+    position = "dodge"
+  ) +
+  facet_wrap(~student_group_long, ncol = 3) +
+  labs(
+    x = "Year",
+    y = "Count of Districts Eligible for DA",
+    title = "Count of districts where suspension\nfactored into DA eligibility"
+  ) +
   scale_y_continuous(labels = scales::label_number(accuracy = 1)) +
   # scale_x_continuous() +
   theme_minimal() +
-  theme(title = element_text(size = 20),
-      axis.text.x = element_text(size = 12),
-      axis.text.y = element_text(size = 12),
-      axis.title.x = element_text(size = 14),
-      axis.title.y = element_text(size = 14),
-      strip.text = element_text(size = 12),
-      legend.title = element_text(size = 14),
-      legend.text = element_text(size = 12),
-      plot.caption = element_text(size = 12)
+  theme(
+    title = element_text(size = 20),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    strip.text = element_text(size = 12),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12),
+    plot.caption = element_text(size = 12)
   )
 
 ```
@@ -354,29 +415,38 @@ The graphs above show the number of districts eligible for DA based in part on s
 
 # College Career by student_group and district
 dashboard %>%
-  filter(rtype == "D", 
-         indicator_eligible == TRUE, 
-         reportingyear == "2023",
-         indicator == "college/career") %>%
+  filter(
+    rtype == "D",
+    indicator_eligible == TRUE,
+    reportingyear == "2023",
+    indicator == "college/career"
+  ) %>%
   group_by(student_group_long) %>%
   count() %>%
   ggplot() +
-  geom_col(mapping = aes(x = n, y = reorder(student_group_long, n)),
-           fill = all_years_color,
-           position = "dodge") +
+  geom_col(
+    mapping = aes(x = n, y = reorder(student_group_long, n)),
+    fill = all_years_color,
+    position = "dodge"
+  ) +
   scale_fill_manual(values = chart_colors) +
-  labs(fill = "Year", x = "Eligible Districts",
-       y = NULL, title = "Number of Districts Eligible for DA \nbased on College/Career 2023") +
+  labs(
+    fill = "Year",
+    x = "Eligible Districts",
+    y = NULL,
+    title = "Number of Districts Eligible for DA \nbased on College/Career 2023"
+  ) +
   theme_minimal() +
-  theme(title = element_text(size = 20),
-      axis.text.x = element_text(size = 12),
-      axis.text.y = element_text(size = 12),
-      axis.title.x = element_text(size = 14),
-      axis.title.y = element_text(size = 14),
-      strip.text = element_text(size = 12),
-      legend.title = element_text(size = 14),
-      legend.text = element_text(size = 12),
-      plot.caption = element_text(size = 12)
+  theme(
+    title = element_text(size = 20),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    strip.text = element_text(size = 12),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12),
+    plot.caption = element_text(size = 12)
   )
 
 ```

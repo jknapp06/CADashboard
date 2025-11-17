@@ -4,5 +4,7 @@
 *.html
 /data_output/
 .Rproj.user
+/cache/
+/data/cache/
 /data/full_dashboard.csv
 /data/ca_dashboard.csv

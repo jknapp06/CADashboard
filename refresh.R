@@ -59,6 +59,20 @@ run_refresh <- function(
   # check 1_clean_assistance.R for sheet and start_row details
   message("Loading assistance files...")
   raw_assistance_list <- list(
+    assistance_25 = load_assistance_xlsx_from_cache(
+      assistance_urls$assistance_25,
+      sheet = 4,
+      start_row = 6,
+      cache_dir = cache_dir,
+      force = force
+    ),
+    assistance_25_charter = load_assistance_xlsx_from_cache(
+      assistance_urls$assistance_25_charter,
+      sheet = 4,
+      start_row = 6,
+      cache_dir = cache_dir,
+      force = force
+    ),
     assistance_24 = load_assistance_xlsx_from_cache(
       assistance_urls$assistance_24,
       sheet = 4,
@@ -132,6 +146,13 @@ run_refresh <- function(
   # # ---- 4. Read ESSA files ----
   message("Loading ESSA files...")
   raw_essa_list <- list(
+    essa25 = load_essa_xlsx_from_cache(
+      essa_urls$essa25,
+      sheet = 2,
+      start_row = 3,
+      cache_dir = cache_dir,
+      force = force
+    ),
     essa24 = load_essa_xlsx_from_cache(
       essa_urls$essa24,
       sheet = 2,
@@ -334,8 +355,14 @@ run_refresh <- function(
           priority_eligible &
           reportingyear == 2022 &
           statuslevel == 1 ~ TRUE,
-        priority == 4 & indicator == "ELA" & caaspp_eligible == TRUE ~ TRUE,
-        priority == 4 & indicator == "Math" & caaspp_eligible == TRUE ~ TRUE,
+        studentgroup != "LTEL" &
+          priority == 4 &
+          indicator == "ELA" &
+          caaspp_eligible == TRUE ~ TRUE,
+        studentgroup != "LTEL" &
+          priority == 4 &
+          indicator == "Math" &
+          caaspp_eligible == TRUE ~ TRUE,
         priority == 4 & indicator == "ELPI" & elpi_eligible == TRUE ~ TRUE,
         TRUE ~ FALSE
       )
