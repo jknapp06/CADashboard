@@ -34,6 +34,7 @@ normalize_assistance <- function(raw_list) {
 
     # Prioritized year detection
     year_checks <- list(
+      "assistance_status2025" = 2025,
       "assistance_status2024" = 2024,
       "assistance_status2023" = 2023,
       "assistance_status2022" = 2022,
@@ -190,7 +191,6 @@ normalize_essa <- function(raw_list) {
   essa_all |>
     rename_with(~ str_to_lower(.x)) |>
     rename(
-      cds = dplyr::any_of(c("cds", "c_d_s")),
       schoolname = dplyr::any_of(c("schoolname", "school_name")),
       districtname = dplyr::any_of(c("districtname", "district_name")),
       countyname = dplyr::any_of(c("countyname", "county_name"))
@@ -229,7 +229,8 @@ compute_priority4_summary <- function(df) {
     mutate(
       caaspp_eligible = (ELA %in% c(1, 2) & Math %in% c(1, 2)) &
         !(is.na(ELA) | is.na(Math)),
-      elpi_eligible = ELPI == 1
+      elpi_eligible = ELPI == 1 |
+        (student_group_long == "Long-Term English Learner" & ELPI == 2)
     )
 }
 
@@ -248,3 +249,23 @@ priority_eligibility_lookup <- tibble::tribble(
   "J"         , c(5, 6, 8)    ,
   "K"         , c(4, 5, 6, 8)
 )
+
+# normalize teacher assignments data
+normalize_teacher_assignments <- function(df) {
+  df |>
+    janitor::clean_names() |>
+    # make cds code by concatenating county, district, and school codes with leading zeros
+    mutate(
+      cds = paste0(
+        coalesce(as.character(county_code), "00"),
+        coalesce(as.character(district_code), "00000"),
+        coalesce(as.character(school_code), "0000000")
+      )
+    ) |>
+    rename(
+      reportingyear = academic_year,
+      schoolname = school_name,
+      districtname = district_name,
+      countyname = county_name
+    )
+}

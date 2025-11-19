@@ -19,7 +19,7 @@ params:
 
 # Additional letter notifying charters of exit status
 
-# Probably three templates: district DA 
+# Probably three templates: district DA
 
 library(tidyverse)
 library(openxlsx)
@@ -30,11 +30,13 @@ library(flextable)
 # da_districts <- read.xlsx("data/Solano[39].xlsx", sheet = "District and COE 2024")
 # da_charters <- read.xlsx("data/Solano_charter[34].xlsx", sheet = "Charter School 2024")
 
-dashboard <- read_csv("data/solano_dashboard.csv") %>% 
-  filter(reportingyear == "2024",
-         (districtname == params$lea & rtype == "D") |
-         (schoolname == params$lea & rtype == "S"),
-         indicator_eligible == TRUE)
+dashboard <- read_csv("data/solano_dashboard.csv") %>%
+  filter(
+    reportingyear == "2024",
+    (districtname == params$lea & rtype == "D") |
+      (schoolname == params$lea & rtype == "S"),
+    indicator_eligible == TRUE
+  )
 
 ```
 
@@ -45,23 +47,34 @@ DA Status based on 2024 CA School Dashboard Results
 ```{r da_groups}
 #| echo: false
 
-dashboard %>% 
-  select(student_group_long, priority, indicator) %>% 
-  arrange(student_group_long, priority) %>% 
-  mutate(priority = case_match(priority,
-             4 ~ "Priority 4 – Pupil Achievement",
-             5 ~ "Priority 5 – Pupil Engagement",
-             6 ~ "Priority 6 – School Climate",
-             8 ~ "Priority 8 – Outcomes in a Broad Course of Study",
-             .default = paste(priority)),
-         indicator = if_else(indicator == "ELA" | indicator == "ELPI" , 
-                             indicator, str_to_title(indicator))) %>% 
-  flextable() %>% 
-  set_header_labels(values = list("student_group_long" = "Student Group",
-                                  "priority" = "Priority",
-                                  "indicator" = "Indicator")) %>% 
-  width(width = c(2, 2.5, 1.5)) %>% 
-  merge_v() %>% 
+dashboard %>%
+  select(student_group_long, priority, indicator) %>%
+  arrange(student_group_long, priority) %>%
+  mutate(
+    priority = case_match(
+      priority,
+      4 ~ "Priority 4 – Pupil Achievement",
+      5 ~ "Priority 5 – Pupil Engagement",
+      6 ~ "Priority 6 – School Climate",
+      8 ~ "Priority 8 – Outcomes in a Broad Course of Study",
+      .default = paste(priority)
+    ),
+    indicator = if_else(
+      indicator == "ELA" | indicator == "ELPI",
+      indicator,
+      str_to_title(indicator)
+    )
+  ) %>%
+  flextable() %>%
+  set_header_labels(
+    values = list(
+      "student_group_long" = "Student Group",
+      "priority" = "Priority",
+      "indicator" = "Indicator"
+    )
+  ) %>%
+  width(width = c(2, 2.5, 1.5)) %>%
+  merge_v() %>%
   theme_vanilla()
 
 ```

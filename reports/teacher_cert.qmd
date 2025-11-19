@@ -1,0 +1,31 @@
+# start a quarto document that will generate a word document
+---
+title: "Teacher Certification Report"
+author: "Education Analytics Team"
+date: "`r Sys.Date()`"
+format: docx
+output:
+  docx:
+    reference-doc: templates/teacher_cert_template.docx
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    fig-width: 6
+    fig-height: 4
+    fig-caption: true
+    fontsize: 12pt
+    margin-top: 1in
+    margin-bottom: 1in
+    margin-left: 1in
+    margin-right: 1in
+    linestretch: 1.5
+---
+
+```{r setup}
+# include=FALSE
+
+library(tidyverse)
+
+dashboard <- read_csv("data/solano_dashboard.csv")
+
+```

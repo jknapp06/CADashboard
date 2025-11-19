@@ -1,19 +1,32 @@
 ```{r echo = FALSE}
 
-i_case <- if_else(i %in% c("ELA (DFS)", "Math (DFS)", "ELPI"), i, str_to_title(i))
+i_case <- if_else(
+  i %in% c("ELA (DFS)", "Math (DFS)", "ELPI"),
+  i,
+  str_to_title(i)
+)
 cat(paste0("## ", i_case, " status in ", params$district, " over time\n"))
 
 dashboard_filtered %>%
-    filter(indicator == i) %>%
-    select(reportingyear, schoolname_markdown, student_group_long, indicator, currstatus, color) %>%
-    flextable() %>%
-    set_header_labels(reportingyear = "Year",
-                      schoolname_markdown = "School",
-                      student_group_long = "Student Group",
-                      indicator = "Indicator",
-                      currstatus = "Status",
-                      color = "Color") %>%
-    autofit() %>%
-    set_caption(paste("status of", i, "over time.")) 
+  filter(indicator == i) %>%
+  select(
+    reportingyear,
+    schoolname_markdown,
+    student_group_long,
+    indicator,
+    currstatus,
+    color
+  ) %>%
+  flextable() %>%
+  set_header_labels(
+    reportingyear = "Year",
+    schoolname_markdown = "School",
+    student_group_long = "Student Group",
+    indicator = "Indicator",
+    currstatus = "Status",
+    color = "Color"
+  ) %>%
+  autofit() %>%
+  set_caption(paste("status of", i, "over time."))
 
 ```

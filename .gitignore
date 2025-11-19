@@ -4,5 +4,11 @@
 *.html
 /data_output/
 .Rproj.user
+/cache/
+/data/cache/
 /data/full_dashboard.csv
 /data/ca_dashboard.csv
+/data/teacher_assignments.csv
+/data/essa.csv
+/data/ca_education.duckdb
+/data/Solano_School_District_Areas_2024-25.geojson

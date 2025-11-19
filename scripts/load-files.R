@@ -89,7 +89,9 @@ list_cached_versions <- function(
   url_or_basename,
   cache_dir = default_cache_dir
 ) {
-  base <- basename(url_or_basename) |> sub("\\?.*$", "", .)
+  base <- basename(url_or_basename) |>
+    stringr::str_remove("\\?.*$")
+
   pattern <- glue("*_{base}")
   files <- dir_ls(
     cache_dir,
@@ -97,17 +99,22 @@ list_cached_versions <- function(
     type = "file",
     recurse = FALSE
   )
+
   if (length(files) == 0) {
     return(tibble::tibble(path = character(), date = as.Date(character())))
   }
+
   info <- tibble::tibble(path = files) |>
     dplyr::mutate(
       fname = fs::path_file(path),
-      date = as.Date(sub("_.*$", "", fname), format = "%Y%m%d")
+      date = purrr::map_chr(fname, ~ stringr::str_extract(.x, "^\\d{8}")) |>
+        as.Date(format = "%Y%m%d")
     ) |>
     arrange(desc(date))
+
   info
 }
+
 
 # latest_cached_file:
 # - Returns the path to the most recent cached copy for a given URL/basename, or NULL if none.
@@ -381,6 +388,52 @@ load_essa_xlsx_from_cache <- function(
     },
     error = function(e) {
       warning(glue("Failed to read ESSA file {pth}: {e$message}"))
+      NULL
+    }
+  )
+  res
+}
+
+# Download and load teacher assignments file from cache
+load_teacher_files <- function(
+  path_or_url,
+  cache_dir = default_cache_dir,
+  force = FALSE,
+  date_stamp = Sys.Date()
+) {
+  if (grepl("^https?://", path_or_url)) {
+    pth <- safe_download_file(
+      path_or_url,
+      cache_dir = cache_dir,
+      force = force,
+      date_stamp = date_stamp
+    )
+    if (is.null(pth)) {
+      pth <- latest_cached_file(path_or_url, cache_dir = cache_dir)
+      if (is.null(pth)) {
+        warning(glue(
+          "No cached teacher assignments file available for {path_or_url}; skipping."
+        ))
+        return(NULL)
+      }
+    }
+  } else {
+    pth <- path_or_url
+  }
+
+  res <- tryCatch(
+    {
+      vroom::vroom(
+        pth,
+        col_types = cols(.default = col_guess()),
+        progress = FALSE
+      ) |>
+        janitor::clean_names()
+    },
+    error = function(e) {
+      warning(glue(
+        "Failed to read teacher assignments file {pth}: {e$message}"
+      ))
       NULL
     }
   )

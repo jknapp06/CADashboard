@@ -1,11 +1,11 @@
 ---
 title: "Solano County Dashboard Summary"
-subtitle: "2024"
+subtitle: "2025"
 author: SCOE Assessment Research and Evaluation
 format:
   pptx:
-    reference-doc: template.pptx
-    logo: www/SCOE_Logo.jpg
+    reference-doc: ../template.pptx
+    logo: ../www/SCOE_Logo.jpg
 editor: visual
 ---
 
@@ -22,8 +22,10 @@ library(showtext)
 
 # webshot::install_phantomjs()
 
-dashboard <- read_csv("data/solano_dashboard.csv") |>
-  filter(countyname == "Solano", reportingyear == 2024) |>
+current_year <- 2025
+
+dashboard <- read_csv("../data/solano_dashboard.csv") |>
+  filter(countyname == "Solano", reportingyear == current_year) |>
   mutate(
     color = as_factor(color),
     color = fct_relevel(color, "0", "1", "2", "3", "4", "5"),
@@ -123,8 +125,8 @@ dashboard <- read_csv("data/solano_dashboard.csv") |>
     )
   )
 
-district_geo <- read_sf("data/California_School_District_Areas_2022-23.geojson")
-school_geo <- read_sf("data/California_Schools_2022-23.geojson")
+district_geo <- read_sf("../data/Solano_School_District_Areas_2024-25.geojson")
+school_geo <- read_sf("../data/Solano_SchoolSites2425.geojson")
 
 district_geo <-
   district_geo |>
@@ -176,24 +178,24 @@ status_colors <- c(
 
 colors_only <- c("tomato", "orange", "yellow", "mediumseagreen", "dodgerblue")
 
-font_add('fa-solid', 'fonts/fa-solid-900.ttf')
+font_add('fa-solid', '../fonts/fa-solid-900.ttf')
 
 ```
 
-# Solano County Dashboard Overview
+# Solano County Dashboard Overview `r current_year`
 
 ## Dashboard Colors
 
-![CA Dashboard Performance Colors](CDE%20Colors.png){fig-align="center"}
+![CA Dashboard Performance Colors](../images/CDE%20Colors.png){fig-align="center"}
 
-## District Indicator Colors
+## `r current_year` District Indicator Colors
 
 ```{r}
 #| label: district_table
 #| echo: FALSE
 
 dashboard |>
-  filter(rtype == "D", indicator != "science") |>
+  filter(rtype == "D") |>
   group_by(districtname) |>
   count(color) |>
   pivot_wider(names_from = color, values_from = n, values_fill = 0) |>
@@ -221,14 +223,14 @@ dashboard |>
 
 ```
 
-## Charter Indicator Colors
+## `r current_year` Charter Indicator Colors
 
 ```{r}
 #| label: charter_table
 #| echo: FALSE
 
 dashboard |>
-  filter(charter_flag == "Y", indicator != "science") |>
+  filter(charter_flag == "Y") |>
   group_by(schoolname) |>
   count(color) |>
   pivot_wider(names_from = color, values_from = n, values_fill = 0) |>
@@ -256,7 +258,7 @@ dashboard |>
 
 ```
 
-## Counts of Indicator Colors in Solano County Student Groups: Race/Ethnicity
+## `r current_year` Counts of Indicator Colors in Solano County Student Groups: Race/Ethnicity
 
 ```{r}
 #| label: race_ethnicity_chart
@@ -311,7 +313,7 @@ dashboard |>
 
 ```
 
-## Counts of Indicator Colors in Solano County Student Groups: Student Program
+## `r current_year` Counts of Indicator Colors in Solano County Student Groups: Student Program
 
 ```{r}
 #| label: program_chart
@@ -365,7 +367,7 @@ dashboard |>
 
 ```
 
-## County Wide ELA Performance (All students)
+## `r current_year` County Wide ELA Performance (All students)
 
 ```{r}
 #| label: ela_map
@@ -421,7 +423,7 @@ leaflet() |>
 
 ```
 
-## County Wide Math Performance (All students)
+## `r current_year` County Wide Math Performance (All students)
 
 ```{r}
 #| label: math_map
@@ -477,7 +479,7 @@ leaflet() |>
 
 ```
 
-## County Wide Chronic Absenteeism (All students)
+## `r current_year` County Wide Chronic Absenteeism (All students)
 
 ```{r}
 #| label: absent_map
@@ -528,7 +530,7 @@ leaflet() |>
 
 ```
 
-## County Wide Suspension (All students)
+## `r current_year` County Wide Suspension (All students)
 
 ```{r}
 #| label: suspension_map
@@ -579,7 +581,7 @@ leaflet() |>
 
 ```
 
-## County Wide Graduation (All students)
+## `r current_year` County Wide Graduation (All students)
 
 ```{r}
 #| label: graduation_map
@@ -630,7 +632,7 @@ leaflet() |>
 
 ```
 
-## County Wide College/Career (All students)
+## `r current_year` County Wide College/Career (All students)
 
 ```{r}
 #| label: college/career_map
@@ -681,7 +683,7 @@ leaflet() |>
 
 ```
 
-## Long-Term English Learners: Districts
+## `r current_year` Long-Term English Learners: Districts
 
 ```{r ltel_counts_districts}
 
@@ -733,7 +735,7 @@ el_counts |>
 
 ```
 
-## Long-Term English Learners: Charters
+## `r current_year` Long-Term English Learners: Charters
 
 ```{r ltel_counts_charters}
 
@@ -765,13 +767,13 @@ el_counts |>
 
 ```
 
-# Student Group Details
+# `r current_year` Student Group Details
 
 ## Detail Key
 
-![](dashboard-cell-key-CDE-change%20CSI.png)
+![](../images/dashboard-cell-key-CDE-change%20CSI.png)
 
-## All Students
+## `r current_year` All Students
 
 ```{r all_students}
 
@@ -820,7 +822,7 @@ dashboard |>
 showtext_auto(FALSE)
 ```
 
-## Students with disabilities
+## `r current_year` Students with disabilities
 
 ```{r swd}
 
@@ -869,7 +871,56 @@ dashboard |>
 showtext_auto(FALSE)
 ```
 
-## English Learners
+## `r current_year` Foster
+
+```{r foster}
+
+showtext_auto()
+
+dashboard |>
+  filter(
+    student_group_long == "Foster Youth",
+    rtype == "D" | (rtype == "S" & charter_flag == "Y")
+  ) |>
+  arrange(rtype) |>
+  ggplot() +
+  geom_richtext(
+    x = 0.5,
+    y = 0.5,
+    mapping = aes(
+      label = if_else(
+        indicator %in% c("ELA", "Math", "science"),
+        paste(currstatus, change_arrow, change),
+        paste0(currstatus, "% ", change_arrow, " ", change)
+      ),
+      fill = color
+    ),
+    show.legend = FALSE,
+    text.color = "black",
+    color = "darkgrey",
+    label.size = 0.8,
+    size = 3.3
+  ) +
+  scale_fill_manual(values = status_colors, drop = FALSE, na.value = "white") +
+  facet_grid(leaname ~ indicator, scales = "free", space = "free") +
+  theme_minimal() +
+  theme(
+    text = element_text(size = 12),
+    strip.text.x = element_text(size = 11),
+    strip.text.y = element_markdown(
+      size = 11,
+      angle = 0,
+      vjust = 0.7,
+      hjust = 0
+    ),
+    strip.clip = "off",
+    panel.spacing = unit(0, "pt")
+  )
+
+showtext_auto(FALSE)
+```
+
+## `r current_year` English Learners
 
 ```{r el}
 
@@ -918,7 +969,7 @@ dashboard |>
 showtext_auto(FALSE)
 ```
 
-## Long-Term English Learners
+## `r current_year` Long-Term English Learners
 
 ```{r ltel}
 
@@ -967,7 +1018,9 @@ dashboard |>
 showtext_auto(FALSE)
 ```
 
-## Black/African American
+:::{.hidden}
+
+## `r current_year` Black/African American
 
 ```{r aa}
 
@@ -1016,6 +1069,8 @@ dashboard |>
 showtext_auto(FALSE)
 ```
 
+## `r current_year` Black/African American (Anonymized)
+
 ```{r aa_anonmyized}
 
 showtext_auto()
@@ -1063,7 +1118,9 @@ dashboard |>
 showtext_auto(FALSE)
 ```
 
-## Homeless Youth
+:::
+
+## `r current_year` Homeless Youth
 
 ```{r homeless}
 

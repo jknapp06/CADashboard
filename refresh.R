@@ -22,7 +22,9 @@ library(tidyverse)
 run_refresh <- function(
   force = FALSE,
   db_path = "data/ca_education.duckdb",
-  out_dir = "data"
+  out_dir = "data",
+  app_dir = "app/app_data/",
+  are_dir = "C:/Users/jknapp/Solano County Office of Education/Assessment Research and Evaluation - A.R.E. Library/Data"
 ) {
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -59,6 +61,20 @@ run_refresh <- function(
   # check 1_clean_assistance.R for sheet and start_row details
   message("Loading assistance files...")
   raw_assistance_list <- list(
+    assistance_25 = load_assistance_xlsx_from_cache(
+      assistance_urls$assistance_25,
+      sheet = 4,
+      start_row = 6,
+      cache_dir = cache_dir,
+      force = force
+    ),
+    assistance_25_charter = load_assistance_xlsx_from_cache(
+      assistance_urls$assistance_25_charter,
+      sheet = 4,
+      start_row = 6,
+      cache_dir = cache_dir,
+      force = force
+    ),
     assistance_24 = load_assistance_xlsx_from_cache(
       assistance_urls$assistance_24,
       sheet = 4,
@@ -132,6 +148,13 @@ run_refresh <- function(
   # # ---- 4. Read ESSA files ----
   message("Loading ESSA files...")
   raw_essa_list <- list(
+    essa25 = load_essa_xlsx_from_cache(
+      essa_urls$essa25,
+      sheet = 2,
+      start_row = 3,
+      cache_dir = cache_dir,
+      force = force
+    ),
     essa24 = load_essa_xlsx_from_cache(
       essa_urls$essa24,
       sheet = 2,
@@ -334,8 +357,14 @@ run_refresh <- function(
           priority_eligible &
           reportingyear == 2022 &
           statuslevel == 1 ~ TRUE,
-        priority == 4 & indicator == "ELA" & caaspp_eligible == TRUE ~ TRUE,
-        priority == 4 & indicator == "Math" & caaspp_eligible == TRUE ~ TRUE,
+        studentgroup != "LTEL" &
+          priority == 4 &
+          indicator == "ELA" &
+          caaspp_eligible == TRUE ~ TRUE,
+        studentgroup != "LTEL" &
+          priority == 4 &
+          indicator == "Math" &
+          caaspp_eligible == TRUE ~ TRUE,
         priority == 4 & indicator == "ELPI" & elpi_eligible == TRUE ~ TRUE,
         TRUE ~ FALSE
       )
@@ -345,7 +374,46 @@ run_refresh <- function(
   small_dashboard <- ca_dashboard |>
     filter(countyname == "Solano" | countyname == "CA State Aggregate")
 
-  # ---- 7. Join with ESSA for local dashboard_essa ----
+  # ---- 7. Download and clean teacher credentialing data ----
+
+  message("Loading teacher credentialing data...")
+  teacher_assignments <- load_teacher_files(
+    teacher_assignments_url,
+    cache_dir = "cache",
+    force = force
+  )
+
+  message("Normalizing teacher credentialing data...")
+  teacher_assignments_clean <- normalize_teacher_assignments(
+    teacher_assignments
+  )
+
+  solano_teachers <-
+    teacher_assignments_clean |>
+    filter(countyname == "Solano")
+
+  # # print teacher_assignement_clean column names and sample
+  # message(
+  #   "Teacher assignments columns: ",
+  #   paste(sort(names(teacher_assignments_clean)), collapse = ", ")
+  # )
+  # message("Sample of teacher assignments data:")
+  # print(head(
+  #   teacher_assignments_clean |>
+  #     select(
+  #       cds,
+  #       county_code,
+  #       district_code,
+  #       school_code,
+  #       countyname,
+  #       districtname,
+  #       schoolname,
+  #       total_fte
+  #     ),
+  #   10
+  # ))
+
+  # ---- 8. Join with ESSA for local dashboard_essa ----
   dashboard_essa <- ca_dashboard |>
     filter(countyname == "Solano") |>
     left_join(
@@ -359,13 +427,26 @@ run_refresh <- function(
       )
     )
 
-  # ---- 8. Write CSV outputs ----
+  # ---- 9. Write CSV outputs ----
   message("Writing CSV outputs to: ", out_dir)
-  readr::write_csv(ca_dashboard, file.path(out_dir, "ca_dashboard.csv"))
-  readr::write_csv(small_dashboard, file.path(out_dir, "solano_dashboard.csv"))
-  readr::write_csv(assistance, file.path(out_dir, "assistance.csv"))
-  readr::write_csv(essa, file.path(out_dir, "essa.csv"))
-  readr::write_csv(dashboard_essa, file.path(out_dir, "dashboard_essa.csv"))
+  write_csv(ca_dashboard, file.path(out_dir, "ca_dashboard.csv"))
+  write_csv(small_dashboard, file.path(out_dir, "solano_dashboard.csv"))
+  write_csv(assistance, file.path(out_dir, "assistance.csv"))
+  write_csv(essa, file.path(out_dir, "essa.csv"))
+  write_csv(dashboard_essa, file.path(app_dir, "dashboard_essa.csv"))
+  write_csv(dashboard_essa, file.path(are_dir, "dashboard_essa.csv"))
+  write_csv(
+    teacher_assignments_clean,
+    file.path(out_dir, "teacher_assignments.csv")
+  )
+  write_csv(
+    solano_teachers,
+    file.path(app_dir, "teacher_assignments.csv")
+  )
+  write_csv(
+    solano_teachers,
+    file.path(are_dir, "teacher_assignments_2025.csv")
+  )
 
   # ---- 9. Populate DuckDB ----
   #   message("Populating DuckDB at: ", db_path)
