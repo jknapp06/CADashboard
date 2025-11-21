@@ -14,8 +14,9 @@ editor: visual
 
 library(tidyverse)
 library(flextable)
+library(here)
 
-dashboard <- read_csv("data/solano_dashboard.csv")
+dashboard <- read_csv(here("data/solano_dashboard.csv"))
 
 ```
 
@@ -28,33 +29,50 @@ The table below lists LEAs and student groups that have been eligible for DA for
 ```{r da_groups}
 #| echo: false
 
-da_groups <- 
-  dashboard %>% 
-  filter(reportingyear %in% c(2024, 2023, 2022, 2019, 2018, 2017),
-         indicator_eligible == TRUE,
-         rtype == "D" |
-         charter_flag == "Y" & rtype == "S") %>% 
-  select(reportingyear, districtname, schoolname, student_group_long, indicator) %>%
-  arrange(reportingyear) %>% 
-  pivot_wider(names_from = reportingyear, values_from = indicator,
-              values_fn = list) %>% 
-  arrange(districtname, schoolname, student_group_long)%>%
+da_groups <-
+  dashboard %>%
+  filter(
+    reportingyear %in% c(2025, 2024, 2023, 2022, 2019, 2018, 2017),
+    indicator_eligible == TRUE,
+    rtype == "D" |
+      charter_flag == "Y" & rtype == "S"
+  ) %>%
+  select(
+    reportingyear,
+    districtname,
+    schoolname,
+    student_group_long,
+    indicator
+  ) %>%
+  arrange(reportingyear) %>%
+  pivot_wider(
+    names_from = reportingyear,
+    values_from = indicator,
+    values_fn = list
+  ) %>%
+  arrange(districtname, schoolname, student_group_long) %>%
   mutate(across(where(is.list), ~ map_chr(., ~ paste(., collapse = "; "))))
 
-da_groups %>% 
-  mutate(da_years = rowSums(across(c(`2019`, `2022`, `2023`, `2024`), ~ . != ""))) %>% 
-  filter(da_years >= 2) %>% 
-  select(-schoolname, -da_years) %>% 
-  flextable() %>% 
-  merge_v(j = c("districtname"), combine = T) %>% 
-  set_header_labels(values = list("districtname" = "District",
-                                  "student_group_long" = "Student Group",
-                                  "da_years" = "DA Years",
-                                  "2019" = "Eligible indicators: 2019",
-                                  "2022" = "Eligible indicators: 2022",
-                                  "2023" = "Eligible indicators: 2023",
-                                  "2024" = "Eligible indicators: 2024")) %>% 
-  width(width = 1.3) %>% 
+da_groups %>%
+  mutate(
+    da_years = rowSums(across(c(`2022`, `2023`, `2024`), ~ . != ""))
+  ) %>%
+  filter(da_years >= 2) %>%
+  select(-schoolname, -da_years) %>%
+  flextable() %>%
+  merge_v(j = c("districtname"), combine = T) %>%
+  set_header_labels(
+    values = list(
+      "districtname" = "District",
+      "student_group_long" = "Student Group",
+      "da_years" = "DA Years",
+      "2019" = "Eligible indicators: 2019",
+      "2022" = "Eligible indicators: 2022",
+      "2023" = "Eligible indicators: 2023",
+      "2024" = "Eligible indicators: 2024"
+    )
+  ) %>%
+  width(width = 1.3) %>%
   theme_vanilla()
 
 

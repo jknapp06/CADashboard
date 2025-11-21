@@ -92,13 +92,14 @@ normalize_assistance <- function(raw_list) {
               "grades_offered"
             ))
           ) |>
-          # Keep key columns and any columns ending with priorities
+          # Keep key columns
           select(
             cds,
             grades_offered,
             reportingyear,
             assistance_status,
-            tidyselect::matches("(?i)priorities")
+            ends_with("priorities"),
+            starts_with("ec")
           )
 
         # Validate key columns

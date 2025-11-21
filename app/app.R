@@ -217,8 +217,10 @@ ui <- navbarPage(
           href = "https://solanocoe.shinyapps.io/absenteeism/",
           "Absenteeism Details"
         ),
+        br(),
         uiOutput("dashboard_link"),
-        uiOutput("teacher_assignments"),
+        br(),
+        htmlOutput("teacher_assignments"),
       ),
 
       mainPanel(
@@ -481,21 +483,20 @@ server <- function(input, output) {
   teacher_clear_percent <- reactive(
     teachers |>
       filter(
-        reportingyear == dashboard_year(),
-        cds == dashboard_cds()
+        cds == dashboard_cds(),
       ) |>
       distinct() |>
       pull(clear_fte_percent) |>
       nth(1)
   )
 
-  output$teacher_assignments <- renderUI(
+  output$teacher_assignments <- renderText(
     {
       # Print teacher clear percent if available
       if (!is.na(teacher_clear_percent())) {
         paste0(
           "Percentage of teachers with clear credentials: <h5>",
-          round(teacher_clear_percent() * 100, 1),
+          round(teacher_clear_percent(), 1),
           "%</h5>"
         )
       } else {

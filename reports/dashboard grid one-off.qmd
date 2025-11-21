@@ -17,88 +17,115 @@ library(formattable)
 library(DT)
 library(flextable)
 
-dashboard <- read_csv("data/solano_dashboard.csv") %>% 
-  filter(countyname == "Solano",
-         reportingyear == 2023) %>% 
-  mutate(color = as_factor(color),
-         color = fct_relevel(color, "0","1", "2", "3", "4", "5"),
-         indicator_color = case_when(
-          rtype == "S" & color == 0 ~ "#D3D3D3",
-          rtype == "S" & color == 1 ~ "#FF6347",
-          rtype == "S" & color == 2 ~ "#FFA500",
-          rtype == "S" & color == 3 ~ "#FFFF00",
-          rtype == "S" & color == 4 ~ "#3CB371",
-          rtype == "S" & color == 5 ~ "#1E90FF",
-          rtype == "D" & color == 1 ~ "#CD5C5C",
-          rtype == "D" & color == 2 ~ "#FFAF70",
-          rtype == "D" & color == 3 ~ "#FFFACD",
-          rtype == "D" & color == 4 ~ "#90EE90",
-          rtype == "D" & color == 5 ~ "#87CEFA",
-                           .default = "#737373"),
-         leaname = if_else(is.na(charter_flag), districtname, schoolname),
-         change = if_else(is.na(change), "", paste(change)),
-         change_arrow = if_else(indicator %in% c("ELA", "Math", "ELPI", 
-                           "graduation", "college/career"),
-                                case_match(changelevel, # improvement means up
-                                   0 ~ "<span style='font-family:fa-solid;'>&#xf068;</span>",
-                                   1 ~ "<span style='font-family:fa-solid;'>&#xf063;</span>",
-                                   2 ~ "<span style='font-family:fa-solid;'>&#xf078;</span>",
-                                   3 ~ "<span style='font-family:fa-solid;'>&#xf7a4;</span>",
-                                   4 ~ "<span style='font-family:fa-solid;'>&#xf077;</span>",
-                                   5 ~ "<span style='font-family:fa-solid;'>&#xf062;</span>",
-                                   .default = "<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>"),
-                                  case_match(changelevel, # improvement means down
-                                   0 ~ "<span style='font-family:fa-solid;'>&#xf068;</span>",
-                                   5 ~ "<span style='font-family:fa-solid;'>&#xf063;</span>",
-                                   4 ~ "<span style='font-family:fa-solid;'>&#xf078;</span>",
-                                   3 ~ "<span style='font-family:fa-solid;'>&#xf7a4;</span>",
-                                   2 ~ "<span style='font-family:fa-solid;'>&#xf077;</span>",
-                                   1 ~ "<span style='font-family:fa-solid;'>&#xf062;</span>",
-                                   .default = "<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>")),
-         indicator = fct_relevel(as_factor(indicator), "ELA", "Math", "ELPI", "absenteeism", "graduation", "suspension", "college/career", "science"),
-         leaname = fct_relevel(as_factor(leaname), "Solano County Office of Education",
-                        "Benicia Unified",
-                        "Dixon Unified",
-                        "Fairfield-Suisun Unified",
-                        "Travis Unified",
-                        "Vacaville Unified",
-                        "Vallejo City Unified",
-                        "Buckingham Collegiate Charter Academy",
-                        "Caliber: ChangeMakers Academy",
-                        "Elite Public",
-                        "Ernest Kimme Charter Academy",
-                        "Dixon Montessori Charter",
-                        "Fairmont Charter Elementary",
-                        "Griffin Academy High",
-                        "Kairos Public",
-                        "Mare Island Technology Academy",
-                        "MIT Academy",
-                        "MIT Griffin Academy Middle",
-                        "Vallejo Charter"),
-         lealetter = case_match(leaname,
-                        "Solano County Office of Education" ~ "District A",
-                        "Benicia Unified" ~ "District B",
-                        "Dixon Unified" ~ "District C",
-                        "Fairfield-Suisun Unified" ~ "District D",
-                        "Travis Unified" ~ "District E",
-                        "Vacaville Unified" ~ "District F",
-                        "Vallejo City Unified" ~ "District G",
-                        "Buckingham Collegiate Charter Academy" ~ "Charter A",
-                        "Caliber: ChangeMakers Academy" ~ "Charter B",
-                        "Elite Public" ~ "Charter C",
-                        "Ernest Kimme Charter Academy" ~ "Charter D",
-                        "Dixon Montessori Charter" ~ "Charter E",
-                        "Fairmont Charter Elementary" ~ "Charter F",
-                        "Griffin Academy High" ~ "Charter G",
-                        "Kairos Public" ~ "Charter H",
-                        "Mare Island Technology Academy" ~ "Charter I",
-                        "MIT Academy" ~ "Charter J",
-                        "MIT Griffin Academy Middle" ~ "Charter K",
-                        "Vallejo Charter" ~ "Charter L"))
+dashboard <- read_csv("data/solano_dashboard.csv") %>%
+  filter(countyname == "Solano", reportingyear == 2023) %>%
+  mutate(
+    color = as_factor(color),
+    color = fct_relevel(color, "0", "1", "2", "3", "4", "5"),
+    indicator_color = case_when(
+      rtype == "S" & color == 0 ~ "#D3D3D3",
+      rtype == "S" & color == 1 ~ "#FF6347",
+      rtype == "S" & color == 2 ~ "#FFA500",
+      rtype == "S" & color == 3 ~ "#FFFF00",
+      rtype == "S" & color == 4 ~ "#3CB371",
+      rtype == "S" & color == 5 ~ "#1E90FF",
+      rtype == "D" & color == 1 ~ "#CD5C5C",
+      rtype == "D" & color == 2 ~ "#FFAF70",
+      rtype == "D" & color == 3 ~ "#FFFACD",
+      rtype == "D" & color == 4 ~ "#90EE90",
+      rtype == "D" & color == 5 ~ "#87CEFA",
+      .default = "#737373"
+    ),
+    leaname = if_else(is.na(charter_flag), districtname, schoolname),
+    change = if_else(is.na(change), "", paste(change)),
+    change_arrow = if_else(
+      indicator %in% c("ELA", "Math", "ELPI", "graduation", "college/career"),
+      case_match(
+        changelevel, # improvement means up
+        0 ~ "<span style='font-family:fa-solid;'>&#xf068;</span>",
+        1 ~ "<span style='font-family:fa-solid;'>&#xf063;</span>",
+        2 ~ "<span style='font-family:fa-solid;'>&#xf078;</span>",
+        3 ~ "<span style='font-family:fa-solid;'>&#xf7a4;</span>",
+        4 ~ "<span style='font-family:fa-solid;'>&#xf077;</span>",
+        5 ~ "<span style='font-family:fa-solid;'>&#xf062;</span>",
+        .default = "<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>"
+      ),
+      case_match(
+        changelevel, # improvement means down
+        0 ~ "<span style='font-family:fa-solid;'>&#xf068;</span>",
+        5 ~ "<span style='font-family:fa-solid;'>&#xf063;</span>",
+        4 ~ "<span style='font-family:fa-solid;'>&#xf078;</span>",
+        3 ~ "<span style='font-family:fa-solid;'>&#xf7a4;</span>",
+        2 ~ "<span style='font-family:fa-solid;'>&#xf077;</span>",
+        1 ~ "<span style='font-family:fa-solid;'>&#xf062;</span>",
+        .default = "<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>"
+      )
+    ),
+    indicator = fct_relevel(
+      as_factor(indicator),
+      "ELA",
+      "Math",
+      "ELPI",
+      "absenteeism",
+      "graduation",
+      "suspension",
+      "college/career",
+      "science"
+    ),
+    leaname = fct_relevel(
+      as_factor(leaname),
+      "Solano County Office of Education",
+      "Benicia Unified",
+      "Dixon Unified",
+      "Fairfield-Suisun Unified",
+      "Travis Unified",
+      "Vacaville Unified",
+      "Vallejo City Unified",
+      "Buckingham Collegiate Charter Academy",
+      "Caliber: ChangeMakers Academy",
+      "Elite Public",
+      "Ernest Kimme Charter Academy",
+      "Dixon Montessori Charter",
+      "Fairmont Charter Elementary",
+      "Griffin Academy High",
+      "Kairos Public",
+      "Mare Island Technology Academy",
+      "MIT Academy",
+      "MIT Griffin Academy Middle",
+      "Vallejo Charter"
+    ),
+    lealetter = case_match(
+      leaname,
+      "Solano County Office of Education" ~ "District A",
+      "Benicia Unified" ~ "District B",
+      "Dixon Unified" ~ "District C",
+      "Fairfield-Suisun Unified" ~ "District D",
+      "Travis Unified" ~ "District E",
+      "Vacaville Unified" ~ "District F",
+      "Vallejo City Unified" ~ "District G",
+      "Buckingham Collegiate Charter Academy" ~ "Charter A",
+      "Caliber: ChangeMakers Academy" ~ "Charter B",
+      "Elite Public" ~ "Charter C",
+      "Ernest Kimme Charter Academy" ~ "Charter D",
+      "Dixon Montessori Charter" ~ "Charter E",
+      "Fairmont Charter Elementary" ~ "Charter F",
+      "Griffin Academy High" ~ "Charter G",
+      "Kairos Public" ~ "Charter H",
+      "Mare Island Technology Academy" ~ "Charter I",
+      "MIT Academy" ~ "Charter J",
+      "MIT Griffin Academy Middle" ~ "Charter K",
+      "Vallejo Charter" ~ "Charter L"
+    )
+  )
 
 status_colors <- c(
-  "lightgrey", "tomato", "orange",
-  "yellow", "mediumseagreen", "dodgerblue", "darkgrey"
+  "lightgrey",
+  "tomato",
+  "orange",
+  "yellow",
+  "mediumseagreen",
+  "dodgerblue",
+  "darkgrey"
 )
 
 font_add('fa-solid', 'fonts/fa-solid-900.ttf')
@@ -108,6 +135,7 @@ font_add('fa-solid', 'fonts/fa-solid-900.ttf')
 ![](www/SCOE_Logo.jpg){fig-align="left" width="127"}
 
 ## California School Dashboard Summary One-off Grid
+
 ::: column-page-inset-right
 ![](dashboard-cell-key-CDE-change.png){fig-align="right"}
 :::
@@ -118,71 +146,96 @@ font_add('fa-solid', 'fonts/fa-solid-900.ttf')
 
 showtext_auto()
 
-dashboard %>% 
-  filter(student_group_long == "All students",
-         rtype == "D" | (rtype == "S" & charter_flag == "Y")) %>% 
-  arrange(rtype) %>% 
+dashboard %>%
+  filter(
+    student_group_long == "All students",
+    rtype == "D" | (rtype == "S" & charter_flag == "Y")
+  ) %>%
+  arrange(rtype) %>%
   ggplot() +
-  geom_richtext(x = 0.5, y = 0.5,
-            mapping = aes(label = if_else(indicator %in% c("ELA", "Math", "science"), 
-                                          paste(currstatus, change_arrow, change),
-                                          paste0(currstatus, "% ", change_arrow, " ", change)),
-                          fill = color),
-            show.legend = FALSE,
-            text.color = "black",
-            color = "darkgrey",
-            label.size = 0.8,
-            size = 5.5) +
-  scale_fill_manual(values = status_colors,
-                    drop = FALSE,
-                    na.value = "white") +
+  geom_richtext(
+    x = 0.5,
+    y = 0.5,
+    mapping = aes(
+      label = if_else(
+        indicator %in% c("ELA", "Math", "science"),
+        paste(currstatus, change_arrow, change),
+        paste0(currstatus, "% ", change_arrow, " ", change)
+      ),
+      fill = color
+    ),
+    show.legend = FALSE,
+    text.color = "black",
+    color = "darkgrey",
+    label.size = 0.8,
+    size = 5.5
+  ) +
+  scale_fill_manual(values = status_colors, drop = FALSE, na.value = "white") +
   facet_grid(lealetter ~ indicator, scales = "free", space = "free") +
   theme_minimal() +
   theme(
     text = element_text(size = 14),
     strip.text.x = element_text(size = 14, face = "bold"),
-    strip.text.y = element_markdown(size = 14, angle = 0, vjust = 0.7, hjust = 0),
+    strip.text.y = element_markdown(
+      size = 14,
+      angle = 0,
+      vjust = 0.7,
+      hjust = 0
+    ),
     strip.clip = "off",
-    panel.spacing.x = unit(0.2, "lines"),  # Reduced horizontal spacing between facets
-    panel.spacing.y = unit(0.2, "lines"),  # Reduced vertical spacing between facets
-    plot.margin = margin(5, 5, 5, 5)  # Provide a little breathing room around the entire plot
+    panel.spacing.x = unit(0.2, "lines"), # Reduced horizontal spacing between facets
+    panel.spacing.y = unit(0.2, "lines"), # Reduced vertical spacing between facets
+    plot.margin = margin(5, 5, 5, 5) # Provide a little breathing room around the entire plot
   )
 
 showtext_auto(FALSE)
 ```
+
 ```{r homeless_youth}
 #| echo: false
 
 showtext_auto()
 
-dashboard %>% 
-  filter(student_group_long == "Homeless Youth",
-         rtype == "D" | (rtype == "S" & charter_flag == "Y")) %>% 
-  arrange(rtype) %>% 
+dashboard %>%
+  filter(
+    student_group_long == "Homeless Youth",
+    rtype == "D" | (rtype == "S" & charter_flag == "Y")
+  ) %>%
+  arrange(rtype) %>%
   ggplot() +
-  geom_richtext(x = 0.5, y = 0.5,
-            mapping = aes(label = if_else(indicator %in% c("ELA", "Math", "science"), 
-                                          paste(currstatus, change_arrow, change),
-                                          paste0(currstatus, "% ", change_arrow, " ", change)),
-                          fill = color),
-            show.legend = FALSE,
-            text.color = "black",
-            color = "darkgrey",
-            label.size = 0.8,
-            size = 5.5) +
-  scale_fill_manual(values = status_colors,
-                    drop = FALSE,
-                    na.value = "white") +
+  geom_richtext(
+    x = 0.5,
+    y = 0.5,
+    mapping = aes(
+      label = if_else(
+        indicator %in% c("ELA", "Math", "science"),
+        paste(currstatus, change_arrow, change),
+        paste0(currstatus, "% ", change_arrow, " ", change)
+      ),
+      fill = color
+    ),
+    show.legend = FALSE,
+    text.color = "black",
+    color = "darkgrey",
+    label.size = 0.8,
+    size = 5.5
+  ) +
+  scale_fill_manual(values = status_colors, drop = FALSE, na.value = "white") +
   facet_grid(lealetter ~ indicator, scales = "free", space = "free") +
   theme_minimal() +
   theme(
     text = element_text(size = 14),
     strip.text.x = element_text(size = 14, face = "bold"),
-    strip.text.y = element_markdown(size = 14, angle = 0, vjust = 0.7, hjust = 0),
+    strip.text.y = element_markdown(
+      size = 14,
+      angle = 0,
+      vjust = 0.7,
+      hjust = 0
+    ),
     strip.clip = "off",
-    panel.spacing.x = unit(0.2, "lines"),  # Reduced horizontal spacing between facets
-    panel.spacing.y = unit(0.2, "lines"),  # Reduced vertical spacing between facets
-    plot.margin = margin(5, 5, 5, 5)  # Provide a little breathing room around the entire plot
+    panel.spacing.x = unit(0.2, "lines"), # Reduced horizontal spacing between facets
+    panel.spacing.y = unit(0.2, "lines"), # Reduced vertical spacing between facets
+    plot.margin = margin(5, 5, 5, 5) # Provide a little breathing room around the entire plot
   )
 
 showtext_auto(FALSE)
