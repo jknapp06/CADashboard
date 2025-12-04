@@ -4,7 +4,7 @@
 # 2) download & read raw files (with caching)
 # 3) clean & normalize into canonical tibbles
 # 4) write CSV outputs
-# 5) populate DuckDB for app/report use
+# 5) populate DuckDB for app/report use (not implemented)
 #
 # Usage:
 # source("R/data-urls.R")
@@ -14,18 +14,36 @@
 # run_refresh(force = FALSE, db_path = "data/ca_education.duckdb")
 
 library(tidyverse)
+library(here)
 
-# Run the whole pipeline. Parameters:
-# - force: re-download remote files when TRUE
-# - db_path: path to DuckDB file to create/populate
-# - out_dir: directory for CSV outputs
-run_refresh <- function(
-  force = FALSE,
-  db_path = "data/ca_education.duckdb",
-  out_dir = "data",
-  app_dir = "app/app_data/",
-  are_dir = "C:/Users/jknapp/Solano County Office of Education/Assessment Research and Evaluation - A.R.E. Library/Data"
-) {
+options(scipen = 999) # so CDS isn't changed in scientific notation
+
+# Run the whole pipeline.
+# If this script is sourced directly, run with defaults (do not force).
+if (identical(environment(), globalenv()) && interactive()) {
+  # Ensure helper files are loaded if run interactively
+  if (!exists("dashboard_files")) {
+    source(here("scripts/data-urls.R"))
+  }
+  if (!exists("load_dashboard_file")) {
+    source(here("scripts/load-files.R"))
+  }
+  if (!exists("normalize_assistance")) {
+    source(here("scripts/clean.R"))
+  }
+  if (!exists("connect_duckdb")) {
+    source(here("scripts/db.R"))
+  }
+
+  # - force: re-download remote files when TRUE
+  # - db_path: path to DuckDB file to create/populate
+  # - out_dir: directory for CSV outputs
+  force <- FALSE
+  db_path <- "data/ca_education.duckdb"
+  out_dir <- "data"
+  app_dir <- "app/app_data/"
+  are_dir <- "C:/Users/jknapp/Solano County Office of Education/Assessment Research and Evaluation - A.R.E. Library/Data"
+
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
   # ---- 1. Load source lists from data-urls.R (must be sourced before calling) ----
@@ -34,7 +52,7 @@ run_refresh <- function(
       !exists("assistance_urls") ||
       !exists("essa_urls")
   ) {
-    stop("Please source data-urls.R before running run_refresh().")
+    stop("Please source data-urls.R before running.")
   }
 
   # ---- 2. Read dashboard indicator files ----
@@ -140,6 +158,7 @@ run_refresh <- function(
   num_with_assistance <- assistance |>
     filter(!is.na(assistance)) |>
     nrow()
+
   message(
     "Number of rows with non-missing assistance after normalization: ",
     num_with_assistance
@@ -278,28 +297,53 @@ run_refresh <- function(
   #   )
   # )
 
+  check_priorities <- function(priority, priorities) {
+    priority %in% unlist(priorities)
+  }
+
   # left join assistance
   dashboard_with_assistance <- dashboard_clean |>
-    left_join(assistance, by = join_by(cds, studentgroup, reportingyear)) |>
-    left_join(priority_eligibility_lookup, by = "assistance") |>
+    left_join(
+      assistance,
+      by = join_by(cds, studentgroup, reportingyear, charter_flag)
+    ) |>
+    left_join(
+      priority_eligibility_lookup,
+      by = join_by("assistance_current" == "assistance")
+    ) |>
+    rename(priorities_current = priorities) |>
+    left_join(
+      priority_eligibility_lookup,
+      by = join_by("assistance_prior" == "assistance")
+    ) |>
+    rename(priorities_prior = priorities) |>
+    left_join(priority_eligibility_lookup, by = "assistance")
+
+  dashboard_with_elibibility <-
+    dashboard_with_assistance |>
     mutate(
-      priority_eligible = map2_lgl(priority, priorities, function(pri, pris) {
-        # Explicitly unlist and compare
-        pri %in% unlist(pris)
-      })
+      priority_eligible = if_else(
+        is.na(charter_flag), # if not a charter
+        # check priority against priorites.
+        # using purrr checks one row at a time.
+        map2_lgl(priority, priorities, check_priorities),
+        # check charter eligbility for priority based on current status.
+        assistance_status == "Differentiated Assistance" &
+          map2_lgl(priority, priorities_current, check_priorities)
+      )
     ) |>
     # drop priorities so duckDB can store the table
-    select(-priorities)
+    select(-starts_with("priorities"))
 
   # Print the number of rows after join for debugging
   message(
     "Dashboard with assistance has ",
-    nrow(dashboard_with_assistance),
+    nrow(dashboard_with_elibibility),
     " rows after join."
   )
 
   # Print the number of rows with a value in assistance for debugging
-  num_with_assistance <- dashboard_with_assistance |>
+  num_with_assistance <- dashboard_with_elibibility |>
     filter(!is.na(assistance)) |>
     nrow()
   message(
@@ -308,7 +352,7 @@ run_refresh <- function(
   )
 
   # print number of rows where priorty_eligible is TRUE
-  num_priority_eligible <- dashboard_with_assistance |>
+  num_priority_eligible <- dashboard_with_elibibility |>
     filter(priority_eligible) |>
     nrow()
   message(
@@ -320,7 +364,7 @@ run_refresh <- function(
   # message("Sample of joined data:")
   # print(
   #   head(
-  #     dashboard_with_assistance |>
+  #     dashboard_with_elibibility |>
   #       filter(
   #         assistance %in%
   #           c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"),
@@ -342,9 +386,9 @@ run_refresh <- function(
   # ---- 6. Compute CA Dashboard eligibility logic ----
   message("Computing indicator eligibility and priority-4 summary...")
 
-  priority_4_tbl <- compute_priority4_summary(dashboard_with_assistance)
+  priority_4_tbl <- compute_priority4_summary(dashboard_with_elibibility)
 
-  ca_dashboard <- dashboard_with_assistance |>
+  ca_dashboard <- dashboard_with_elibibility |>
     left_join(
       priority_4_tbl,
       by = join_by(cds, reportingyear, student_group_long)
@@ -423,25 +467,26 @@ run_refresh <- function(
         districtname,
         countyname,
         schoolname,
-        studentgroup
+        studentgroup,
+        reportingyear
       )
     )
 
   # ---- 9. Write CSV outputs ----
   message("Writing CSV outputs to: ", out_dir)
-  write_csv(ca_dashboard, file.path(out_dir, "ca_dashboard.csv"))
-  write_csv(small_dashboard, file.path(out_dir, "solano_dashboard.csv"))
-  write_csv(assistance, file.path(out_dir, "assistance.csv"))
-  write_csv(essa, file.path(out_dir, "essa.csv"))
-  write_csv(dashboard_essa, file.path(app_dir, "dashboard_essa.csv"))
+  write_csv(ca_dashboard, here(out_dir, "ca_dashboard.csv"))
+  write_csv(small_dashboard, here(out_dir, "solano_dashboard.csv"))
+  write_csv(assistance, here(out_dir, "assistance.csv"))
+  write_csv(essa, here(out_dir, "essa.csv"))
+  write_csv(dashboard_essa, here(app_dir, "dashboard_essa.csv"))
   write_csv(dashboard_essa, file.path(are_dir, "dashboard_essa.csv"))
   write_csv(
     teacher_assignments_clean,
-    file.path(out_dir, "teacher_assignments.csv")
+    here(out_dir, "teacher_assignments.csv")
   )
   write_csv(
     solano_teachers,
-    file.path(app_dir, "teacher_assignments.csv")
+    here(app_dir, "teacher_assignments.csv")
   )
   write_csv(
     solano_teachers,
@@ -449,50 +494,32 @@ run_refresh <- function(
   )
 
   # ---- 9. Populate DuckDB ----
-  #   message("Populating DuckDB at: ", db_path)
-  #   con <- connect_duckdb(db_path = db_path)
-  #   on.exit(
-  #     {
-  #       try(DBI::dbDisconnect(con, shutdown = TRUE), silent = TRUE)
-  #     },
-  #     add = TRUE
-  #   )
+  # message("Populating DuckDB at: ", db_path)
+  # con <- connect_duckdb(db_path = db_path)
+  # on.exit(
+  #   {
+  #     try(DBI::dbDisconnect(con, shutdown = TRUE), silent = TRUE)
+  #   },
+  #   add = TRUE
+  # )
 
-  #   tables_to_write <- list(
-  #     ca_dashboard = ca_dashboard,
-  #     small_dashboard = small_dashboard,
-  #     assistance = assistance
-  #     # ,
-  #     # essa = essa,
-  #     # dashboard_essa = dashboard_essa
-  #   )
-  #   write_tables(con, tables_to_write)
+  # tables_to_write <- list(
+  #   ca_dashboard = ca_dashboard,
+  #   small_dashboard = small_dashboard,
+  #   assistance = assistance
+  #   # ,
+  #   # essa = essa,
+  #   # dashboard_essa = dashboard_essa
+  # )
+  # write_tables(con, tables_to_write)
 
-  #   message("Refresh complete. CSVs written and DuckDB populated.")
-  #   invisible(list(
-  #     ca_dashboard = ca_dashboard,
-  #     small_dashboard = small_dashboard,
-  #     assistance = assistance,
-  #     # essa = essa,
-  #     # dashboard_essa = dashboard_essa,
-  #     db_path = db_path
-  #   ))
-}
-
-# If this script is sourced directly, run with defaults (do not force).
-if (identical(environment(), globalenv()) && interactive()) {
-  # Ensure helper files are loaded if run interactively
-  if (!exists("dashboard_files")) {
-    source("scripts/data-urls.R")
-  }
-  if (!exists("load_dashboard_file")) {
-    source("scripts/load-files.R")
-  }
-  if (!exists("normalize_assistance")) {
-    source("scripts/clean.R")
-  }
-  if (!exists("connect_duckdb")) {
-    source("scripts/db.R")
-  }
-  run_refresh(force = FALSE)
+  # message("Refresh complete. CSVs written and DuckDB populated.")
+  # invisible(list(
+  #   ca_dashboard = ca_dashboard,
+  #   small_dashboard = small_dashboard,
+  #   assistance = assistance,
+  #   # essa = essa,
+  #   # dashboard_essa = dashboard_essa,
+  #   db_path = db_path
+  # ))
 }

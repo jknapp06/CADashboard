@@ -18,6 +18,12 @@ library(ggrepel)
 library(ggtext)
 library(here)
 
+if (interactive()) {
+  params <- rmarkdown::yaml_front_matter(
+    rstudioapi::getSourceEditorContext()$path
+  )$params
+}
+
 dashboard <- read_csv(here("data/solano_dashboard.csv")) |>
   filter(
     rtype == "D" &

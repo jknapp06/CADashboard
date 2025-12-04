@@ -13,6 +13,7 @@ library(glue)
 library(janitor)
 library(fs)
 
+options(scipen = 999) # so CDS isn't changed in scientific notation
 # Ensure cache dir exists
 default_cache_dir <- "data/cache"
 dir_create(default_cache_dir, recurse = TRUE)
@@ -101,13 +102,13 @@ list_cached_versions <- function(
   )
 
   if (length(files) == 0) {
-    return(tibble::tibble(path = character(), date = as.Date(character())))
+    return(tibble(path = character(), date = as.Date(character())))
   }
 
-  info <- tibble::tibble(path = files) |>
-    dplyr::mutate(
-      fname = fs::path_file(path),
-      date = purrr::map_chr(fname, ~ stringr::str_extract(.x, "^\\d{8}")) |>
+  info <- tibble(path = files) |>
+    mutate(
+      fname = path_file(path),
+      date = map_chr(fname, ~ str_extract(.x, "^\\d{8}")) |>
         as.Date(format = "%Y%m%d")
     ) |>
     arrange(desc(date))
@@ -136,7 +137,7 @@ download_all_dashboard_files <- function(
   force = FALSE,
   date_stamp = Sys.Date()
 ) {
-  purrr::pmap_dfr(
+  pmap_dfr(
     list(
       dashboard_files$url,
       dashboard_files$indicator,
@@ -150,7 +151,7 @@ download_all_dashboard_files <- function(
         force = force,
         date_stamp = date_stamp
       )
-      tibble::tibble(
+      tibble(
         url = url,
         indicator = indicator,
         priority = priority,
@@ -172,7 +173,7 @@ load_dashboard_file_from_cache <- function(
   col_types = NULL
 ) {
   if (is.na(local_path) || is.null(local_path) || !file_exists(local_path)) {
-    warning(glue::glue(
+    warning(glue(
       "Cannot read dashboard file: missing cached file for indicator {d_indicator}"
     ))
     return(NULL)
@@ -212,8 +213,12 @@ load_dashboard_file_from_cache <- function(
   res <- tryCatch(
     {
       vroom::vroom(local_path, col_types = col_types, progress = FALSE) |>
-        janitor::clean_names() |>
-        mutate(indicator = d_indicator, priority = priority)
+        clean_names() |>
+        # remove_empty(c("rows", "columns")) |>
+        mutate(indicator = d_indicator, priority = priority) |>
+        rename(
+          reportingyear = dplyr::any_of(c("reportingyear", "reporting_year"))
+        )
     },
     error = function(e) {
       warning(glue(

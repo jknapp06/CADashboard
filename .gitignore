@@ -2,6 +2,9 @@
 *.xlsx
 *.docx
 *.html
+*.duckdb
+*.csv
+*.tex
 /data_output/
 .Rproj.user
 /cache/

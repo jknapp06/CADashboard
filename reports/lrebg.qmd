@@ -1,4 +1,5 @@
 ---
+5---
 format: 
   pdf:
     mainfont: Ebrima
@@ -25,48 +26,65 @@ library(wesanderson)
 library(flextable)
 library(janitor)
 library(openxlsx)
+library(here)
 
-dashboard <- read_csv("data/ca_dashboard.csv") %>% 
-  filter(countyname == "Solano",
-         districtname == params$district,
-         reportingyear == params$year) %>%
-  mutate(statuslevel = as_factor(statuslevel),
-         # reportingyear = fct_relevel(as_factor(reportingyear), "2019"),
-         indicator = fct_relevel(as_factor(indicator), 
-                                 "ELA", "Math", "ELPI", 
-                                 "absenteeism", "graduation", 
-                                 "suspension"),
-         studentgroup = as_factor(studentgroup),
-         student_group_long = fct_relevel(as_factor(student_group_long),
-                                    "All students",
-                                    "American Indian or Alaska Native",
-                                    "Asian",
-                                    "Black/African American",
-                                    "Filipino",
-                                    "Hispanic",
-                                    "Pacific Islander",
-                                    "White",
-                                    "Multiple Races/Two or more",
-                                    "Socioeconomically Disadvantaged",
-                                    "Homeless Youth",
-                                    "Students with Disabilities",
-                                    "Foster Youth",
-                                    "English Learner",
-                                    "English Learners Only",
-                                    "RFEPs Only",
-                                    "English Only",
-                                    "Smarter Balanced Assessment",
-                                    "CA Alternative Assessment"
-                                    ),
-         color = as_factor(color)) 
+dashboard <- read_csv(here("data/ca_dashboard.csv")) |>
+  filter(
+    countyname == "Solano",
+    districtname == params$district,
+    reportingyear == params$year
+  ) |>
+  mutate(
+    statuslevel = as_factor(statuslevel),
+    # reportingyear = fct_relevel(as_factor(reportingyear), "2019"),
+    indicator = fct_relevel(
+      as_factor(indicator),
+      "ELA",
+      "Math",
+      "ELPI",
+      "absenteeism",
+      "graduation",
+      "suspension"
+    ),
+    studentgroup = as_factor(studentgroup),
+    student_group_long = fct_relevel(
+      as_factor(student_group_long),
+      "All students",
+      "American Indian or Alaska Native",
+      "Asian",
+      "Black/African American",
+      "Filipino",
+      "Hispanic",
+      "Pacific Islander",
+      "White",
+      "Multiple Races/Two or more",
+      "Socioeconomically Disadvantaged",
+      "Homeless Youth",
+      "Students with Disabilities",
+      "Foster Youth",
+      "English Learner",
+      "English Learners Only",
+      "RFEPs Only",
+      "English Only",
+      "Smarter Balanced Assessment",
+      "CA Alternative Assessment"
+    ),
+    color = as_factor(color)
+  )
 
 
 status_colors <- c(
-  "lightgrey", "tomato", "orange",
-  "yellow", "mediumseagreen", "dodgerblue", "darkgrey"
+  "lightgrey",
+  "tomato",
+  "orange",
+  "yellow",
+  "mediumseagreen",
+  "dodgerblue",
+  "darkgrey"
 )
 ```
-![](www/SCOE_Logo.jpg){fig-align="left" width="127"}
+
+![](../app/www/SCOE_Logo.jpg){fig-align="left" width="127"}
 
 ## `r params$initials` Needs Assessment Data Summary
 
@@ -77,34 +95,48 @@ This report summarizes LEA-level and/or student group results from the 2024 CA S
 #| tbl-cap: "Schools where the All Students group has a status of low or very low in ELA."
 #| tbl-cap-location: top
 
-dashboard %>% 
-  filter(rtype == "S",
-         studentgroup == "ALL",
-         indicator == "ELA",
-         statuslevel == "1" | statuslevel == "2") %>% 
-  mutate(status_and_change  = case_match(statuslevel,
-                                  "1" ~ 1 + changelevel,
-                                  "2" ~ 2 + changelevel,
-                                  .default = 0),
-         statuslevel = case_match(statuslevel,
-                                  "1" ~ "Very Low",
-                                  "2" ~ "Low",
-                                  .default = "Error"),
-         changelevel = case_match(changelevel,
-                                  1 ~ "Decreased Significantly",
-                                  2 ~ "Decreased",
-                                  3 ~ "Maintained",
-                                  4 ~ "Increased",
-                                  5 ~ "Increased Significantly",
-                                  0 ~ "No Change Level")) %>% 
-  arrange(status_and_change) %>% 
-  select(schoolname, indicator, statuslevel, changelevel, currdenom) %>% 
-  flextable() %>% 
-  set_header_labels(values = list(schoolname = "School Name",
-                                  indicator = "Indicator",
-                                  statuslevel = "Status",
-                                  changelevel = "Change",
-                                  currdenom = "Denominator")) %>% 
+dashboard |>
+  filter(
+    rtype == "S",
+    studentgroup == "ALL",
+    indicator == "ELA",
+    statuslevel == "1" | statuslevel == "2"
+  ) |>
+  mutate(
+    status_and_change = case_match(
+      statuslevel,
+      "1" ~ 1 + changelevel,
+      "2" ~ 2 + changelevel,
+      .default = 0
+    ),
+    statuslevel = case_match(
+      statuslevel,
+      "1" ~ "Very Low",
+      "2" ~ "Low",
+      .default = "Error"
+    ),
+    changelevel = case_match(
+      changelevel,
+      1 ~ "Decreased Significantly",
+      2 ~ "Decreased",
+      3 ~ "Maintained",
+      4 ~ "Increased",
+      5 ~ "Increased Significantly",
+      0 ~ "No Change Level"
+    )
+  ) |>
+  arrange(status_and_change) |>
+  select(schoolname, indicator, statuslevel, changelevel, currdenom) |>
+  flextable() |>
+  set_header_labels(
+    values = list(
+      schoolname = "School Name",
+      indicator = "Indicator",
+      statuslevel = "Status",
+      changelevel = "Change",
+      currdenom = "Denominator"
+    )
+  ) |>
   width(width = c(2, 1.2, 0.8, 1, 0.8))
 
 ```
@@ -114,34 +146,48 @@ dashboard %>%
 #| tbl-cap: "Schools where the All Students group has a status of low or very low in Math."
 #| tbl-cap-location: top
 
-dashboard %>% 
-  filter(rtype == "S",
-         studentgroup == "ALL",
-         indicator == "Math",
-         statuslevel == "1" | statuslevel == "2") %>% 
-  mutate(status_and_change  = case_match(statuslevel,
-                                  "1" ~ 1 + changelevel,
-                                  "2" ~ 2 + changelevel,
-                                  .default = 0),
-         statuslevel = case_match(statuslevel,
-                                  "1" ~ "Very Low",
-                                  "2" ~ "Low",
-                                  .default = "Error"),
-         changelevel = case_match(changelevel,
-                                  1 ~ "Decreased Significantly",
-                                  2 ~ "Decreased",
-                                  3 ~ "Maintained",
-                                  4 ~ "Increased",
-                                  5 ~ "Increased Significantly",
-                                  0 ~ "No Change Level")) %>% 
-  arrange(status_and_change) %>% 
-  select(schoolname, indicator, statuslevel, changelevel, currdenom) %>% 
-  flextable() %>% 
-  set_header_labels(values = list(schoolname = "School Name",
-                                  indicator = "Indicator",
-                                  statuslevel = "Status",
-                                  changelevel = "Change",
-                                  currdenom = "Denominator")) %>% 
+dashboard |>
+  filter(
+    rtype == "S",
+    studentgroup == "ALL",
+    indicator == "Math",
+    statuslevel == "1" | statuslevel == "2"
+  ) |>
+  mutate(
+    status_and_change = case_match(
+      statuslevel,
+      "1" ~ 1 + changelevel,
+      "2" ~ 2 + changelevel,
+      .default = 0
+    ),
+    statuslevel = case_match(
+      statuslevel,
+      "1" ~ "Very Low",
+      "2" ~ "Low",
+      .default = "Error"
+    ),
+    changelevel = case_match(
+      changelevel,
+      1 ~ "Decreased Significantly",
+      2 ~ "Decreased",
+      3 ~ "Maintained",
+      4 ~ "Increased",
+      5 ~ "Increased Significantly",
+      0 ~ "No Change Level"
+    )
+  ) |>
+  arrange(status_and_change) |>
+  select(schoolname, indicator, statuslevel, changelevel, currdenom) |>
+  flextable() |>
+  set_header_labels(
+    values = list(
+      schoolname = "School Name",
+      indicator = "Indicator",
+      statuslevel = "Status",
+      changelevel = "Change",
+      currdenom = "Denominator"
+    )
+  ) |>
   width(width = c(2, 1.2, 0.8, 1, 0.8))
 ```
 
@@ -150,35 +196,56 @@ dashboard %>%
 #| tbl-cap: "Schools where the All Students group has a status of high or very high for chronic absenteeism."
 #| tbl-cap-location: top
 
-dashboard %>% 
-  filter(rtype == "S",
-         studentgroup == "ALL",
-         indicator == "absenteeism",
-         statuslevel == "1" | statuslevel == "2") %>% 
-  mutate(status_and_change  = case_match(statuslevel,
-                                  "1" ~ 1 + changelevel,
-                                  "2" ~ 2 + changelevel,
-                                  .default = 0),
-         statuslevel = case_match(statuslevel,
-                                  "1" ~ "Very High",
-                                  "2" ~ "High",
-                                  .default = "Error"),
-         changelevel = case_match(changelevel,
-                                  5 ~ "Decreased Significantly",
-                                  4 ~ "Decreased",
-                                  3 ~ "Maintained",
-                                  2 ~ "Increased",
-                                  1 ~ "Increased Significantly",
-                                  0 ~ "No Change Level")) %>% 
-  arrange(status_and_change) %>% 
-  select(schoolname, indicator, statuslevel, changelevel, currdenom, currnumer) %>% 
-  flextable() %>% 
-  set_header_labels(values = list(student_group_long = "Student Group",
-                                  indicator = "Indicator",
-                                  statuslevel = "Status",
-                                  changelevel = "Change",
-                                  currnumer = "Numerator",
-                                  currdenom = "Denominator")) %>% 
+dashboard |>
+  filter(
+    rtype == "S",
+    studentgroup == "ALL",
+    indicator == "absenteeism",
+    statuslevel == "1" | statuslevel == "2"
+  ) |>
+  mutate(
+    status_and_change = case_match(
+      statuslevel,
+      "1" ~ 1 + changelevel,
+      "2" ~ 2 + changelevel,
+      .default = 0
+    ),
+    statuslevel = case_match(
+      statuslevel,
+      "1" ~ "Very High",
+      "2" ~ "High",
+      .default = "Error"
+    ),
+    changelevel = case_match(
+      changelevel,
+      5 ~ "Decreased Significantly",
+      4 ~ "Decreased",
+      3 ~ "Maintained",
+      2 ~ "Increased",
+      1 ~ "Increased Significantly",
+      0 ~ "No Change Level"
+    )
+  ) |>
+  arrange(status_and_change) |>
+  select(
+    schoolname,
+    indicator,
+    statuslevel,
+    changelevel,
+    currdenom,
+    currnumer
+  ) |>
+  flextable() |>
+  set_header_labels(
+    values = list(
+      student_group_long = "Student Group",
+      indicator = "Indicator",
+      statuslevel = "Status",
+      changelevel = "Change",
+      currnumer = "Numerator",
+      currdenom = "Denominator"
+    )
+  ) |>
   width(width = c(1, 1.5, 0.6, 1, 0.8, 0.8))
 
 ```
@@ -188,33 +255,47 @@ dashboard %>%
 #| tbl-cap: "Student groups at the district level where the group has a status of low or very low in ELA."
 #| tbl-cap-location: top
 
-dashboard %>% 
-  filter(rtype == "D",
-         indicator == "ELA",
-         statuslevel == "1" | statuslevel == "2") %>% 
-  mutate(status_and_change  = case_match(statuslevel,
-                                  "1" ~ 1 + changelevel,
-                                  "2" ~ 2 + changelevel,
-                                  .default = 0),
-         statuslevel = case_match(statuslevel,
-                                  "1" ~ "Very Low",
-                                  "2" ~ "Low",
-                                  .default = "Error"),
-         changelevel = case_match(changelevel,
-                                  1 ~ "Decreased Significantly",
-                                  2 ~ "Decreased",
-                                  3 ~ "Maintained",
-                                  4 ~ "Increased",
-                                  5 ~ "Increased Significantly",
-                                  0 ~ "No Change Level")) %>% 
-  arrange(status_and_change) %>% 
-  select(indicator, student_group_long, statuslevel, changelevel, currdenom) %>% 
-  flextable() %>% 
-  set_header_labels(values = list(student_group_long = "Student Group",
-                                  indicator = "Indicator",
-                                  statuslevel = "Status",
-                                  changelevel = "Change",
-                                  currdenom = "Denominator")) %>% 
+dashboard |>
+  filter(
+    rtype == "D",
+    indicator == "ELA",
+    statuslevel == "1" | statuslevel == "2"
+  ) |>
+  mutate(
+    status_and_change = case_match(
+      statuslevel,
+      "1" ~ 1 + changelevel,
+      "2" ~ 2 + changelevel,
+      .default = 0
+    ),
+    statuslevel = case_match(
+      statuslevel,
+      "1" ~ "Very Low",
+      "2" ~ "Low",
+      .default = "Error"
+    ),
+    changelevel = case_match(
+      changelevel,
+      1 ~ "Decreased Significantly",
+      2 ~ "Decreased",
+      3 ~ "Maintained",
+      4 ~ "Increased",
+      5 ~ "Increased Significantly",
+      0 ~ "No Change Level"
+    )
+  ) |>
+  arrange(status_and_change) |>
+  select(indicator, student_group_long, statuslevel, changelevel, currdenom) |>
+  flextable() |>
+  set_header_labels(
+    values = list(
+      student_group_long = "Student Group",
+      indicator = "Indicator",
+      statuslevel = "Status",
+      changelevel = "Change",
+      currdenom = "Denominator"
+    )
+  ) |>
   width(width = c(1, 2, 1, 1, 1))
 
 ```
@@ -224,33 +305,47 @@ dashboard %>%
 #| tbl-cap: "Student groups at the district level where the group has a status of low or very low in Math."
 #| tbl-cap-location: top
 
-dashboard %>% 
-  filter(rtype == "D",
-         indicator == "Math",
-         statuslevel == "1" | statuslevel == "2") %>% 
-  mutate(status_and_change  = case_match(statuslevel,
-                                  "1" ~ 1 + changelevel,
-                                  "2" ~ 2 + changelevel,
-                                  .default = 0),
-         statuslevel = case_match(statuslevel,
-                                  "1" ~ "Very Low",
-                                  "2" ~ "Low",
-                                  .default = "Error"),
-         changelevel = case_match(changelevel,
-                                  1 ~ "Decreased Significantly",
-                                  2 ~ "Decreased",
-                                  3 ~ "Maintained",
-                                  4 ~ "Increased",
-                                  5 ~ "Increased Significantly",
-                                  0 ~ "No Change Level")) %>% 
-  arrange(status_and_change) %>% 
-  select(indicator, student_group_long, statuslevel, changelevel, currdenom) %>% 
-  flextable() %>% 
-  set_header_labels(values = list(student_group_long = "Student Group",
-                                  indicator = "Indicator",
-                                  statuslevel = "Status",
-                                  changelevel = "Change",
-                                  currdenom = "Denominator")) %>% 
+dashboard |>
+  filter(
+    rtype == "D",
+    indicator == "Math",
+    statuslevel == "1" | statuslevel == "2"
+  ) |>
+  mutate(
+    status_and_change = case_match(
+      statuslevel,
+      "1" ~ 1 + changelevel,
+      "2" ~ 2 + changelevel,
+      .default = 0
+    ),
+    statuslevel = case_match(
+      statuslevel,
+      "1" ~ "Very Low",
+      "2" ~ "Low",
+      .default = "Error"
+    ),
+    changelevel = case_match(
+      changelevel,
+      1 ~ "Decreased Significantly",
+      2 ~ "Decreased",
+      3 ~ "Maintained",
+      4 ~ "Increased",
+      5 ~ "Increased Significantly",
+      0 ~ "No Change Level"
+    )
+  ) |>
+  arrange(status_and_change) |>
+  select(indicator, student_group_long, statuslevel, changelevel, currdenom) |>
+  flextable() |>
+  set_header_labels(
+    values = list(
+      student_group_long = "Student Group",
+      indicator = "Indicator",
+      statuslevel = "Status",
+      changelevel = "Change",
+      currdenom = "Denominator"
+    )
+  ) |>
   width(width = c(1, 2, 1, 1, 1))
 
 ```
@@ -260,34 +355,55 @@ dashboard %>%
 #| tbl-cap: "Student groups at the district level where the group has a status of high or very high in chronic absenteeism."
 #| tbl-cap-location: top
 
-dashboard %>% 
-  filter(rtype == "D",
-         indicator == "absenteeism",
-         statuslevel == "1" | statuslevel == "2") %>% 
-  mutate(status_and_change  = case_match(statuslevel,
-                                  "1" ~ 1 + changelevel,
-                                  "2" ~ 2 + changelevel,
-                                  .default = 0),
-         statuslevel = case_match(statuslevel,
-                                  "1" ~ "Very High",
-                                  "2" ~ "High",
-                                  .default = "Error"),
-         changelevel = case_match(changelevel,
-                                  5 ~ "Decreased Significantly",
-                                  4 ~ "Decreased",
-                                  3 ~ "Maintained",
-                                  2 ~ "Increased",
-                                  1 ~ "Increased Significantly",
-                                  0 ~ "No Change Level")) %>% 
-  arrange(status_and_change) %>% 
-  select(indicator, student_group_long, statuslevel, changelevel, currdenom, currnumer) %>% 
-  flextable() %>% 
-  set_header_labels(values = list(student_group_long = "Student Group",
-                                  indicator = "Indicator",
-                                  statuslevel = "Status",
-                                  changelevel = "Change",
-                                  currnumer = "Numerator",
-                                  currdenom = "Denominator")) %>% 
+dashboard |>
+  filter(
+    rtype == "D",
+    indicator == "absenteeism",
+    statuslevel == "1" | statuslevel == "2"
+  ) |>
+  mutate(
+    status_and_change = case_match(
+      statuslevel,
+      "1" ~ 1 + changelevel,
+      "2" ~ 2 + changelevel,
+      .default = 0
+    ),
+    statuslevel = case_match(
+      statuslevel,
+      "1" ~ "Very High",
+      "2" ~ "High",
+      .default = "Error"
+    ),
+    changelevel = case_match(
+      changelevel,
+      5 ~ "Decreased Significantly",
+      4 ~ "Decreased",
+      3 ~ "Maintained",
+      2 ~ "Increased",
+      1 ~ "Increased Significantly",
+      0 ~ "No Change Level"
+    )
+  ) |>
+  arrange(status_and_change) |>
+  select(
+    indicator,
+    student_group_long,
+    statuslevel,
+    changelevel,
+    currdenom,
+    currnumer
+  ) |>
+  flextable() |>
+  set_header_labels(
+    values = list(
+      student_group_long = "Student Group",
+      indicator = "Indicator",
+      statuslevel = "Status",
+      changelevel = "Change",
+      currnumer = "Numerator",
+      currdenom = "Denominator"
+    )
+  ) |>
   width(width = c(1, 1.5, 0.6, 1, 0.8, 0.8))
 
 ```

@@ -1,9 +1,10 @@
 # clean.R
-# Canonical schema, mapping and cleaning functions to produce assistance, essa, ca_dashboard, and dashboard_essa tibbles.
 
 library(dplyr)
 library(stringr)
 library(tidyr)
+
+options(scipen = 999) # so CDS isn't changed in scientific notation
 
 # normalize_assistance_files: reads assistance_xlsx tibbles and maps to canonical column names
 # Input: named list of tibbles (raw reads). Output: single canonical assistance tibble.
@@ -18,7 +19,7 @@ normalize_assistance <- function(raw_list) {
   message("Normalizing assistance data from ", length(raw_list), " files")
 
   # Helper function with more robust error handling
-  fix_one <- function(df, file_index) {
+  process_assistance <- function(df, file_index) {
     # Validate each input data frame
     if (!is.data.frame(df)) {
       warning("Item ", file_index, " is not a data frame. Skipping.")
@@ -27,6 +28,7 @@ normalize_assistance <- function(raw_list) {
 
     # Get column names
     df_names <- names(df)
+    # message(paste(df_names, collapse = ", "))
 
     # More robust year detection with explicit checks
     assistance_year <- NA_integer_
@@ -42,6 +44,9 @@ normalize_assistance <- function(raw_list) {
       "assistance_status2018" = 2018,
       "assistance_status" = 2017
     )
+
+    # Check if charter
+    charter <- "chartername" %in% df_names
 
     for (col_name in names(year_checks)) {
       if (col_name %in% df_names) {
@@ -73,7 +78,7 @@ normalize_assistance <- function(raw_list) {
     # Attempt to process the file with error handling
     tryCatch(
       {
-        processed_df <- df |>
+        slim_df <- df |>
           # Add reportingyear and pick only the most recent assistance status column
           mutate(
             reportingyear = assistance_year,
@@ -82,24 +87,102 @@ normalize_assistance <- function(raw_list) {
               .data[[assistance_variable_name]]
             } else {
               NA_character_
-            }
-          ) |>
-          # Flexible renaming of grades offered column
-          rename(
-            grades_offered = dplyr::any_of(c(
-              "gsoffered",
-              "gradesoffered",
-              "grades_offered"
-            ))
+            },
+            charter_flag = if_else(charter, "Y", NA_character_)
           ) |>
           # Keep key columns
           select(
             cds,
-            grades_offered,
+            charter_flag,
             reportingyear,
             assistance_status,
             ends_with("priorities"),
+            ends_with("current"),
+            ends_with("prior"),
             starts_with("ec")
+          )
+
+        # Define the base patterns for current and prior columns
+        current_patterns <- c(
+          "a_acurrent",
+          "a_icurrent",
+          "a_scurrent",
+          "e_lcurrent",
+          "f_icurrent",
+          "fo_scurrent",
+          "h_icurrent",
+          "ho_mcurrent",
+          "se_dcurrent",
+          "sw_dcurrent",
+          "to_mcurrent",
+          "w_hcurrent"
+        )
+        prior_patterns <- c(
+          "a_aprior",
+          "a_iprior",
+          "a_sprior",
+          "e_lprior",
+          "f_iprior",
+          "fo_sprior",
+          "h_iprior",
+          "ho_mprior",
+          "se_dprior",
+          "sw_dprior",
+          "to_mprior",
+          "w_hprior"
+        )
+
+        # For LTEL columns, only include them if they exist
+        if ("lte_lcurrent" %in% names(slim_df)) {
+          current_patterns <- c(current_patterns, "lte_lcurrent")
+        }
+        if ("lte_lprior" %in% names(slim_df)) {
+          prior_patterns <- c(prior_patterns, "lte_lprior")
+        }
+
+        # Combine the patterns for pivot_longer
+        cols_to_pivot <- c(current_patterns, prior_patterns)
+        cols_to_pivot <- cols_to_pivot[cols_to_pivot %in% names(slim_df)] # Ensure only existing columns are included
+
+        long_df <- tibble()
+        if (charter) {
+          message(paste(
+            "Charter assistance file detected. Assistance year:",
+            assistance_year
+          ))
+          # message(paste(df_names, collapse = ", "))
+          long_df <-
+            slim_df |>
+            pivot_longer(
+              cols = cols_to_pivot,
+              names_to = c("studentgroup", "current_prior"),
+              names_pattern = "(.+)(current|prior)",
+              values_to = "assistance",
+            ) |>
+            pivot_wider(
+              names_from = current_prior,
+              values_from = assistance,
+              names_prefix = "assistance_"
+            )
+        } else {
+          long_df <-
+            slim_df |>
+            pivot_longer(
+              cols = ends_with("priorities"),
+              names_to = "studentgroup",
+              values_to = "assistance",
+              names_pattern = "(.*)priorities"
+            )
+        }
+
+        processed_df <-
+          long_df |>
+          mutate(
+            studentgroup = if_else(
+              studentgroup == "tom",
+              "MR",
+              str_to_upper(str_remove_all(studentgroup, "_"))
+            )
           )
 
         # Validate key columns
@@ -111,15 +194,16 @@ normalize_assistance <- function(raw_list) {
       },
       error = function(e) {
         warning("Error processing file ", file_index, ": ", e$message)
+        traceback()
         return(NULL)
       }
     )
   }
 
   # Process all files, filtering out any NULL results
-  processed_files <- Filter(
-    Negate(is.null),
-    lapply(seq_along(raw_list), function(i) fix_one(raw_list[[i]], i))
+  processed_files <- keep(
+    map2(raw_list, seq_along(raw_list), process_assistance),
+    Negate(is.null)
   )
 
   # Check if any files were successfully processed
@@ -127,23 +211,15 @@ normalize_assistance <- function(raw_list) {
     stop("No files could be processed")
   }
   # Bind rows and perform final transformations
-  result <- dplyr::bind_rows(processed_files) |>
-    # Pivot priorities columns
-    pivot_longer(
-      cols = ends_with("priorities"),
-      names_to = "studentgroup",
-      values_to = "assistance",
-      names_pattern = "(.*)priorities"
-    ) |>
-    mutate(
-      studentgroup = if_else(
-        studentgroup == "tom",
-        "MR",
-        str_to_upper(str_remove_all(studentgroup, "_"))
-      )
-    ) |>
-    # Drop rows with NA assistance
-    drop_na(assistance)
+  result <- bind_rows(processed_files)
+
+  # Check if result has charters
+  message(paste(
+    result |>
+      filter(charter_flag == "Y") |>
+      nrow(),
+    "rows where charter_flag is TRUE in processed_files."
+  ))
 
   # Log final results
   message(
@@ -194,8 +270,14 @@ normalize_essa <- function(raw_list) {
     rename(
       schoolname = dplyr::any_of(c("schoolname", "school_name")),
       districtname = dplyr::any_of(c("districtname", "district_name")),
-      countyname = dplyr::any_of(c("countyname", "county_name"))
+      countyname = dplyr::any_of(c("countyname", "county_name")),
+      reportingyear = dplyr::any_of(c(
+        "reportingyear",
+        "reporting_year",
+        "ReportingYear"
+      ))
     ) |>
+    mutate(reportingyear = parse_number(reportingyear)) |>
     pivot_longer(
       cols = intersect(names(essa_all), grp_cols),
       names_to = "studentgroup",

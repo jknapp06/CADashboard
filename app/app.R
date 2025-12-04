@@ -8,8 +8,28 @@ library(plotly)
 # library(sf)
 # library(leaflet)
 
+options(scipen = 999) # so CDS isn't changed in scientific notation
 dashboard <- vroom("app_data/dashboard_essa.csv")
 teachers <- vroom("app_data/teacher_assignments.csv")
+
+# cds_check <- teachers |>
+#   select(
+#     cds,
+#     county_code,
+#     district_code,
+#     school_code,
+#     countyname,
+#     districtname,
+#     schoolname
+#   ) |>
+#   mutate(cds = as.character(cds))
+
+# vusd_cds <-
+#   dashboard |>
+#   filter(districtname == "Vacaville Unified") |>
+#   pull(cds) |>
+#   nth(1) |>
+#   as.character()
 
 # districts_geo <- read_sf("data/solano_districts.geojson")
 # schools_geo <- read_sf("data/solano_schools.geojson")
@@ -101,7 +121,8 @@ schools <-
     countyname,
     districtname,
     schoolname,
-    charter_flag
+    charter_flag,
+    rtype
   ) |>
   distinct()
 
@@ -402,6 +423,13 @@ server <- function(input, output) {
       nth(1)
   )
 
+  selected_aggregate <- reactive(
+    schools |>
+      filter(cds == dashboard_cds()) |>
+      pull(rtype) |>
+      nth(1)
+  )
+
   dashboard_filtered <- reactive(
     dashboard |>
       filter(reportingyear == dashboard_year())
@@ -420,7 +448,8 @@ server <- function(input, output) {
   dashboard_cds <- reactive(
     dashboard_graphable() |>
       pull(cds) |>
-      nth(1)
+      nth(1) |>
+      as.character()
   )
 
   ca_aggregate <- reactive(
@@ -481,13 +510,31 @@ server <- function(input, output) {
   )
 
   teacher_clear_percent <- reactive(
-    teachers |>
-      filter(
-        cds == dashboard_cds(),
-      ) |>
-      distinct() |>
-      pull(clear_fte_percent) |>
-      nth(1)
+    if (selected_aggregate() == "D") {
+      teachers |>
+        filter(
+          cds == dashboard_cds(),
+          dass == "All",
+          charter_school == "No",
+          school_grade_span == "ALL",
+          teacher_experience_level == "ALL",
+          teacher_credential_level == "ALL",
+          subject_area == "TA"
+        ) |>
+        distinct() |>
+        pull(clear_fte_percent) |>
+        nth(1)
+    } else if (selected_aggregate() == "S") {
+      teachers |>
+        filter(
+          cds == dashboard_cds(),
+          teacher_experience_level == "ALL",
+          teacher_credential_level == "ALL",
+          subject_area == "TA"
+        ) |>
+        pull(clear_fte_percent) |>
+        nth(1)
+    }
   )
 
   output$teacher_assignments <- renderText(
@@ -497,7 +544,7 @@ server <- function(input, output) {
         paste0(
           "Percentage of teachers with clear credentials: <h5>",
           round(teacher_clear_percent(), 1),
-          "%</h5>"
+          "%</h5>(Data from 2023-24 Academic year)"
         )
       } else {
         "Teacher assignment data not available for this LEA/year."

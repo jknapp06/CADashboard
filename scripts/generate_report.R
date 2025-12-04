@@ -1,29 +1,36 @@
 # Generate DA reports
 
 library(tidyverse)
+library(here)
 
-dashboard <- read_csv("data/ca_dashboard.csv") %>% 
-  filter(countyname == "Solano")
+dashboard <- read_csv(here("data/solano_dashboard.csv"))
 
 # list all districts and DA eligible charters
 
-districts <-  
-  dashboard %>% 
-  pull(districtname) %>% 
+districts <-
+  dashboard |>
+  filter(reportingyear == 2025, indicator_eligible) |>
+  pull(districtname) |>
   unique()
 
-da_eligible_charters <- 
-  dashboard %>% 
-  filter(reportingyear == 2024,
-         charter_flag == "Y",
-         assistance_status == "Differentiated Assistance") %>% 
-  pull(schoolname) %>% 
+da_eligible_charters <-
+  dashboard |>
+  filter(
+    reportingyear == 2025,
+    charter_flag == "Y",
+    assistance_status == "Differentiated Assistance"
+  ) |>
+  pull(schoolname) |>
   unique()
 
 leas_to_report <- c(districts, da_eligible_charters)
 
 for (lea in leas_to_report) {
-  quarto::quarto_render("DA_one_page.qmd",
-                        output_file = paste(lea, "DA one pager.pdf"), 
-                        execute_params = list("lea" = lea))
+  lea_output <- str_replace_all(lea, ":", "")
+
+  quarto::quarto_render(
+    here("reports/DA_one_page.qmd"),
+    output_file = paste(lea_output, "DA one pager.pdf"),
+    execute_params = list("lea" = lea)
+  )
 }

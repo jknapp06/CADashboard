@@ -2,8 +2,21 @@
 
 library(tidyverse)
 library(openxlsx)
+library(janitor)
+library(here)
 
-solano_dashboard <- read_csv("data/solano_dashboard.csv") |>
+solano_dashboard <- read_csv(
+  here("data/solano_dashboard.csv"),
+  col_select = c(
+    "reportingyear",
+    "countyname",
+    "districtname",
+    "schoolname",
+    "student_group_long",
+    "indicator",
+    "indicator_eligible"
+  )
+) |>
   clean_names() |>
   filter(countyname == "Solano")
 
@@ -13,6 +26,7 @@ da_indicators <-
   select(
     reportingyear,
     districtname,
+    schoolname,
     student_group_long,
     indicator
   ) |>
@@ -31,6 +45,6 @@ da_history_wide <-
 # Write to Excel
 write.xlsx(
   da_history_wide,
-  file = "data_output/da_history_wide.xlsx",
+  file = here("data_output/da_history_wide.xlsx"),
   overwrite = TRUE
 )

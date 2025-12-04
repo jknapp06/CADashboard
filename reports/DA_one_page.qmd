@@ -16,12 +16,11 @@ format:
     fig-dpi: 300
 editor: visual
 params:
-  lea: "Benicia Unified"
-  year: "2024"
+  lea: "Vacaville Unified"
+  year: "2025"
 ---
 
 ```{r setup, include = FALSE}
-
 library(shiny)
 library(tidyverse)
 library(DT)
@@ -32,9 +31,15 @@ library(showtext)
 library(formattable)
 library(DT)
 library(flextable)
+library(here)
 
-dashboard <- read_csv("data/ca_dashboard.csv") %>%
-  filter(countyname == "Solano") %>%
+if (interactive()) {
+  params <- rmarkdown::yaml_front_matter(
+    rstudioapi::getSourceEditorContext()$path
+  )$params
+}
+
+dashboard <- read_csv(here("data/solano_dashboard.csv")) |>
   mutate(
     statuslevel = as_factor(statuslevel),
     reportingyear = fct_relevel(as_factor(reportingyear), "2019"),
@@ -42,7 +47,7 @@ dashboard <- read_csv("data/ca_dashboard.csv") %>%
       indicator,
       "ELA" ~ "ELA (DFS)",
       "Math" ~ "Math (DFS)",
-      "science" ~ "Science (DFS)",
+      "science" ~ "Science",
       "college/career" ~ "College/\nCareer",
       .default = indicator
     ),
@@ -55,7 +60,7 @@ dashboard <- read_csv("data/ca_dashboard.csv") %>%
       "graduation",
       "suspension",
       "College/\nCareer",
-      "Science (DFS)"
+      "Science"
     ),
     studentgroup = as_factor(studentgroup),
     student_group_long = fct_relevel(
@@ -87,9 +92,9 @@ dashboard <- read_csv("data/ca_dashboard.csv") %>%
   )
 
 is_charter <-
-  dashboard %>%
-  filter(lea == params$lea) %>%
-  pull(charter_flag) %>%
+  dashboard |>
+  filter(lea == params$lea) |>
+  pull(charter_flag) |>
   nth(1)
 
 status_colors <- c(
@@ -103,26 +108,26 @@ status_colors <- c(
 )
 
 # da_leas <-
-#   dashboard %>%
-#   filter(priority_eligible == TRUE) %>%
-#   pull(lea) %>%
+#   dashboard |>
+#   filter(priority_eligible == TRUE) |>
+#   pull(lea) |>
 #   unique()
 #
 # lea_selection = 1
-font_add('fa-solid', 'fonts/fa-solid-900.ttf')
+font_add('fa-solid', '../fonts/fa-solid-900.ttf')
 
 ```
 
-![](www/SCOE_Logo.jpg){fig-align="left" width="127"}
+![](images/SCOE_Logo.jpg){fig-align="left" width="127"}
 
 # `r paste0(params$year, "-", parse_number(params$year) + 1, " ", params$lea, if_else(is_charter == "N", " School District", ""))` Differentiated Assistance (DA) Eligibility
 
 ## California School Dashboard `r params$year` Summary
 
-The 2024 California School Dashboard (Dashboard) results reflect the current status and change of indicators across student groups. The 2024 Dashboard introduces the science indicator and long-term English learner (LTEL) student group.
+The 2025 California School Dashboard (Dashboard) results reflect the current status and change of indicators across student groups.
 
 ::: column-page-inset-right
-![](dashboard-cell-key-CDE-change.png){fig-align="right"}
+![](images/dashboard-cell-key-CDE-change.png){fig-align="right"}
 :::
 
 ## `r paste0(params$lea, if_else(is_charter == "N"," School District", ""))` `r params$year` Dashboard Overview and DA Eligibility
@@ -137,12 +142,12 @@ showtext_auto()
 
 # element_markdown uses <br> for newlines
 html_wrap <- function(s, width = 17) {
-  str_wrap(s, width = width) %>%
+  str_wrap(s, width = width) |>
     str_replace_all("\n", "<br>")
 }
 
 dashboard_filtered <-
-  dashboard %>%
+  dashboard |>
   filter(
     lea == params$lea,
     reportingyear == params$year,
@@ -165,7 +170,7 @@ dashboard_filtered <-
         "English Learner",
         "Long-Term English Learner"
       )
-  ) %>%
+  ) |>
   mutate(
     student_group_wrapped = str_wrap(student_group_long, width = 17),
     change = if_else(is.na(change), "", paste(change)),
@@ -177,7 +182,7 @@ dashboard_filtered <-
           "ELPI",
           "graduation",
           "College/\nCareer",
-          "Science (DFS)"
+          "Science"
         ),
       case_match(
         changelevel,
@@ -200,20 +205,20 @@ dashboard_filtered <-
         .default = "<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>"
       )
     )
-  ) %>%
+  ) |>
   arrange(student_group_long)
 
 group_count <-
-  dashboard_filtered %>%
-  select(student_group_long) %>%
-  unique() %>%
+  dashboard_filtered |>
+  select(student_group_long) |>
+  unique() |>
   nrow()
 
 da_eligible <-
-  dashboard_filtered %>%
-  group_by(student_group_long) %>%
-  arrange(student_group_long) %>%
-  summarise(group_da_eligible = sum(priority_eligible)) %>%
+  dashboard_filtered |>
+  group_by(student_group_long) |>
+  arrange(student_group_long) |>
+  summarise(group_da_eligible = sum(priority_eligible)) |>
   mutate(
     order = c(1:group_count),
     student_group_markdown = if_else(
@@ -232,8 +237,8 @@ da_eligible <-
     student_group_markdown = fct_reorder(student_group_markdown, order)
   )
 
-dashboard_filtered %>%
-  left_join(da_eligible, by = join_by(student_group_long)) %>%
+dashboard_filtered |>
+  left_join(da_eligible, by = join_by(student_group_long)) |>
   ggplot() +
   geom_richtext(
     x = 0.5,
@@ -242,7 +247,7 @@ dashboard_filtered %>%
       label = if_else(
         indicator == "ELA (DFS)" |
           indicator == "Math (DFS)" |
-          indicator == "Science (DFS)" |
+          indicator == "Science" |
           is.na(currstatus),
         paste(currstatus, change_arrow, change),
         paste0(currstatus, "% ", change_arrow, " ", change)
@@ -286,13 +291,13 @@ showtext_auto(FALSE)
 
 ## DA Eligible Groups
 
-`r if_else(is_charter == "N", "For 2024-2025, districts become eligible for DA based on:", "For 2024-2025, the DA eligibility criteria for charter schools is the same as for districts and COEs except charter schools have to meet the criteria based on any of the methods across two years. Those methods are:")`
+`r if_else(is_charter == "N", "For 2025-2026, districts become eligible for DA based on:", "For 2025-2026, the DA eligibility criteria for charter schools is the same as for districts and COEs except charter schools have to meet the criteria based on any of the methods across two years. Those methods are:")`
 
 -   Student group performance in two or more Local Control Funding Formula (LCFF) state priority areas, or
 -   Performance on local indicators in two or more priority areas, or
 -   A combination of student group performance in one state priority area and local indicator performance in one different priority area.
 
-Results from the 2023 and 2024 Dashboards are used in differentiated assistance determinations. Table 1 provides a summary of the student groups eligible for DA in `r paste0(params$lea, if(is_charter == "N") " School District")` for `r paste0(params$year, "-", parse_number(params$year) + 1)`.
+Results from the 2024 and 2025 Dashboards are used in differentiated assistance determinations. Table 1 provides a summary of the student groups eligible for DA in `r paste0(params$lea, if(is_charter == "N") " School District")` for `r paste0(params$year, "-", parse_number(params$year) + 1)`.
 
 ```{r}
 #| label: dashboard-eligible
@@ -301,12 +306,12 @@ Results from the 2023 and 2024 Dashboards are used in differentiated assistance 
 #| cap-location: bottom
 
 eligible_indicators <-
-  dashboard_filtered %>%
-  filter(indicator_eligible == TRUE) %>%
-  pull(indicator) %>%
+  dashboard_filtered |>
+  filter(indicator_eligible == TRUE) |>
+  pull(indicator) |>
   unique()
 
-dashboard %>%
+dashboard |>
   filter(
     lea == params$lea,
     reportingyear == params$year,
@@ -330,25 +335,25 @@ dashboard %>%
         "Long-Term English Learner"
       ),
     indicator_eligible == TRUE
-  ) %>%
+  ) |>
   mutate(
     currstatus = if_else(
-      indicator %in% c("ELA (DFS)", "Math (DFS)", "Science (DFS)"),
+      indicator %in% c("ELA (DFS)", "Math (DFS)", "Science"),
       paste0(currstatus),
       paste0(currstatus, "%")
     ),
     # n_count = case_when(indicator == "ELA (DFS)" |
     #                    indicator == "Math (DFS)" |
-    #                    indicator == "Science (DFS)" ~ currdenom,
+    #                    indicator == "Science" ~ currdenom,
     #                    .default = currnumer),
     currnumer_str = case_when(
       indicator == "ELA (DFS)" |
         indicator == "Math (DFS)" |
-        indicator == "Science (DFS)" ~ "*",
+        indicator == "Science" ~ "*",
       indicator == "College/\nCareer" ~ as.character(curr_prep),
       .default = as.character(currnumer)
     )
-  ) %>%
+  ) |>
   select(
     student_group_long,
     indicator,
@@ -356,10 +361,10 @@ dashboard %>%
     currdenom,
     currstatus,
     change
-  ) %>%
-  arrange(student_group_long) %>%
-  flextable() %>%
-  line_spacing(space = 0.2, part = "body") %>%
+  ) |>
+  arrange(student_group_long) |>
+  flextable() |>
+  line_spacing(space = 0.2, part = "body") |>
   set_header_labels(
     student_group_long = "Student Group",
     indicator = "Indicator",
@@ -368,10 +373,10 @@ dashboard %>%
     currdenom = "Denominator",
     currstatus = "Current Status",
     change = "Change"
-  ) %>%
-  theme_vanilla() %>%
-  merge_v(j = "student_group_long") %>%
-  width(width = c(1.8, 1, 0.8, 0.8, 0.8, 0.6)) %>%
+  ) |>
+  theme_vanilla() |>
+  merge_v(j = "student_group_long") |>
+  width(width = c(1.8, 1, 0.8, 0.8, 0.8, 0.6)) |>
   align(
     align = c("left", "left", "right", "right", "right", "right"),
     part = "all"
@@ -379,6 +384,6 @@ dashboard %>%
 
 ```
 
-`r ifelse(sum(c("ELA (DFS)", "Math (DFS)", "Science (DFS)") %in% eligible_indicators) > 0, "\\* No numerator for this indicator.","")`<br> <!-- `r ifelse("College/\nCareer" %in% eligible_indicators, "† No numerator provided for this indicator.","")` -->
+`r ifelse(sum(c("ELA (DFS)", "Math (DFS)", "Science") %in% eligible_indicators) > 0, "\\* No numerator for this indicator.","")`<br> <!-- `r ifelse("College/\nCareer" %in% eligible_indicators, "† No numerator provided for this indicator.","")` -->
 
 Report prepared by Solano County Office of Education Assessment Research and Evaluation team. Email Dr. Tacey Rodgers trodgers\@solanocoe.net and Joseph Knapp jknapp\@solanocoe.net with any questions.

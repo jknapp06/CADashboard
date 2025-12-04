@@ -1,0 +1,227 @@
+---
+format: 
+  docx:
+    fig-dpi: 300
+    fig-width: 7.5
+    reference-doc: da-letter-template.docx
+editor: visual
+params:
+  lea: Vallejo City Unified
+  initials: VCUSD
+  superintendent: Superintendent Aurelio
+---
+
+```{r setup}
+#| include: false
+
+# Letter notifying districts and charters of DA status
+# * Priority eligibility
+# * Year eligibility
+# * Student groups and indicators
+
+# Additional letter notifying charters of exit status
+
+# Probably three templates: district DA
+
+library(tidyverse)
+library(lubridate)
+library(flextable)
+library(here)
+
+if (interactive()) {
+  params <- rmarkdown::yaml_front_matter(
+    rstudioapi::getSourceEditorContext()$path
+  )$params
+}
+
+# da_districts <- read.xlsx("data/Solano[39].xlsx", sheet = "District and COE 2024")
+# da_charters <- read.xlsx("data/Solano_charter[34].xlsx", sheet = "Charter School 2024")
+dashboard <- read_csv(here("data/solano_dashboard.csv")) |>
+  filter(districtname == params$lea, schoolname == "District Aggregate")
+
+today_date <- format(now(), "%B %e, %Y")
+
+number_to_word <- function(n) {
+  switch(
+    n,
+    "one student group",
+    "two student groups",
+    "three student groups",
+    "four student groups",
+    "five student groups",
+    "six student groups",
+    "seven student groups",
+    "eight student groups",
+    "nine student groups",
+    "ten student groups",
+    "eleven student groups",
+    "twelve student groups",
+    "thirteen student groups",
+    "fourteen student groups",
+    "fifteen student groups"
+  )
+}
+
+da_dashboard <-
+  dashboard |>
+  filter(reportingyear == 2025, indicator_eligible == TRUE)
+
+da_student_group_count <-
+  da_dashboard |>
+  distinct(student_group_long) |>
+  nrow() |>
+  number_to_word()
+
+da_groups <-
+  dashboard |>
+  mutate(reportingyear = as_factor(reportingyear)) |>
+  filter(
+    reportingyear %in% c(2025, 2024, 2023, 2022, 2019, 2018, 2017),
+    indicator_eligible == TRUE
+  ) |>
+  select(-indicator_eligible)
+
+wide_da_groups <-
+  da_groups |>
+  select(
+    reportingyear,
+    districtname,
+    schoolname,
+    student_group_long,
+    indicator
+  ) |>
+  arrange(reportingyear) |>
+  pivot_wider(
+    names_from = reportingyear,
+    values_from = indicator,
+    values_fn = list
+  ) |>
+  arrange(districtname, schoolname, student_group_long)
+
+dta_groups <-
+  wide_da_groups |>
+  mutate(
+    across(where(is.list), ~ map_chr(., ~ paste(., collapse = "; "))),
+    da_years = rowSums(across(c(`2022`, `2023`, `2024`, `2025`), ~ . != ""))
+  ) |>
+  filter(da_years >= 3) |>
+  select(
+    districtname,
+    student_group_long,
+    `2019`,
+    `2022`,
+    `2023`,
+    `2024`,
+    `2025`
+  )
+
+# Geolead DA: a student group is eligible for DA for 3 consecutive years
+# DTA: 3 or more student groups are eligible for DA for 3 out of 4 consecutive years.
+
+dta_student_group_count <-
+  dta_groups |>
+  distinct(student_group_long) |>
+  nrow() |>
+  number_to_word()
+
+```
+
+`r today_date`
+
+RE:  2025-26 & 2026-27 Eligibility for Assistance under California’s System of Support
+
+Dear `r params$superintendent` and Governing Board Members,
+
+On November 13, the California Department of Education released the results of the 2025 California School Dashboard.
+
+## Differentiated Assistance
+
+In accordance with California’s System of Support (*Education Code 52071*), Local Education Agencies (LEAs) are eligible for Differentiated Assistance based on the performance of student groups on the Dashboard. Education Code 52071(c)(1) provides that the Solano County Office of Education shall provide assistance for a minimum of *two years following the identification*. Using the eligibility criteria, `r params$lea` (`r params$initials`) has qualified for Differentiated Assistance based on `r da_student_group_count` who received the lowest status level in two or more state priority areas as follows:
+
+```{r da_groups}
+#| echo: false
+
+da_dashboard |>
+  select(student_group_long, priority, indicator) |>
+  arrange(student_group_long, priority) |>
+  mutate(
+    priority = case_match(
+      priority,
+      4 ~ "Priority 4 – Pupil Achievement",
+      5 ~ "Priority 5 – Pupil Engagement",
+      6 ~ "Priority 6 – School Climate",
+      8 ~ "Priority 8 – Outcomes in a Broad Course of Study",
+      .default = paste(priority)
+    ),
+    indicator = if_else(
+      indicator == "ELA" | indicator == "ELPI",
+      indicator,
+      str_to_title(indicator)
+    )
+  ) |>
+  flextable() |>
+  set_header_labels(
+    values = list(
+      "student_group_long" = "Student Group",
+      "priority" = "Priority",
+      "indicator" = "Indicator"
+    )
+  ) |>
+  width(width = c(2, 2.5, 1.5)) |>
+  merge_v() |>
+  theme_vanilla()
+
+```
+
+## Intensive Assistance
+
+In addition, the results of the 2025 California School Dashboard indicate insert `r params$initials` is eligible for Intensive Differentiated Assistance based on the performance of student groups on the Dashboard. Education Code 52072 states that the Solano County Office of Education shall provide intensive assistance when three or more pupil student groups meet the criteria pursuant for three or more consecutive years. The California Collaborative for Educational Excellence (CCEE) with the county superintendent of schools shall provide technical assistance to the school district. Using the eligibility criteria, District Name (Initials) has qualified for Intensive Assistance based on `r dta_student_group_count` who meet the criteria pursuant for three or more consecutive years:
+
+```{r dta_groups}
+#| echo: false
+
+names_groups <- names(dta_groups)
+
+dta_groups |>
+  select(-districtname) |>
+  flextable() |>
+  set_header_labels(values = list("student_group_long" = "Student Group")) |>
+  width(width = 1.3) |>
+  add_header_row(
+    values = c("Student Group", "DA Eligible Indicators"),
+    colwidths = c(1, ncol(dta_groups) - 2)
+  ) |>
+  merge_v(part = "header", j = 1) |>
+  theme_vanilla() |>
+  align(align = "center", part = "header") |>
+  align(align = "left", part = "header", j = 1) |>
+  set_caption(paste(
+    params$lea,
+    "student groups eligible for DA three of the last four years."
+  ))
+
+```
+
+## What to expect
+
+The process will engage the district leadership team and educational partners in discussions about the 2025 Dashboard data, local data, system-wide strengths, and possible causes of any challenges. Engaging in a continuous improvement process is key to our approach to addressing needs brought to light by the Dashboard. This process is intended to collaboratively develop ways of responding with specific actions related to reviewing successes and challenges identified within your system and consider ways to measure their effectiveness. The Solano County Office of Education (SCOE) is prepared to continue to work alongside `r params$initials` to facilitate these conversations using evidence-based tools and strategies.
+
+Although the approach will evolve over time based on feedback from educational partners, this is what you can expect:
+
+-   The Solano County Office of Education will continue to work with you to identify underlying causes, possible solutions, helpful resources or expertise, and methods for measuring the effectiveness of possible solutions. There is no requirement to create a new improvement plan nor will the state dictate a specific set of interventions or establish top-down directives for improvement. 
+
+-   A strategic focus and collaboration on student groups meeting the criteria for targeted technical assistance in all three out of the last four years in accordance with Education Code 52072.
+
+-   Consult with the geographic lead agency for further evaluation and support as part of the technical assistance process, as needed.
+
+-   To leverage the Local Control and Accountability Plan (LCAP) process to support your engagement with local educators and communities to strengthen your LCAP and in support of identified improvement initiatives through the annual update cycle.
+
+-   The assistance does not need to be limited only to the student group(s) and indicators that led to identification. Rather, assistance can and should focus on the LEA’s actual needs, regardless of the reasons for eligibility.
+
+-   The assistance is intended to help you leverage strengths/successes, identify needs/challenges and to access expertise or resources to help you address them. While there is urgency to begin this work, there are no quick fixes for developing capacity; such efforts require long-term commitment so that improvement can be sustained and measured over time.
+
+We look forward to continuing to engage with your district team to support these ongoing continuous improvement efforts. Please feel free to contact Dr. Andrea Lemos, Deputy Superintendent of Educational Services and Student Programs at 707-399-4430 if you have any other questions related to this process.
+
+In partnership,
+
+Dr. Nicola Parr Solano County Superintendent of Schools
