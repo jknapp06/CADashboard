@@ -6,7 +6,7 @@ format:
     reference-doc: scoe-are-report.docx
 editor: visual
 params:
-  lea: Travis Unified
+  lea: Fairfield-Suisun Unified
 ---
 
 ```{r setup}
@@ -126,17 +126,9 @@ qualify <- ifelse(
 )
 ```
 
-# `r params$lea` 52072 Report
+# `r params$lea` Intensive Assistance
 
-## Ed Code Section 52072
-
-[ARTICLE 4.5. Local Control and Accountability Plans and the Statewide System of Support \[52059.5 - 52077\]](https://leginfo.legislature.ca.gov/faces/codes_displayText.xhtml?lawCode=EDC&division=4.&title=2.&part=28.&chapter=6.1.&article=4.5.)
-
-> *(a) If a school district meets the criteria established pursuant to subdivision (g) of Section 52064.5 for three or more pupil subgroups identified pursuant to Section 52052 ...in three out of four consecutive school years, the California Collaborative for Educational Excellence shall determine, in consultation with the school district and any provider of technical assistance pursuant to Section 52071, if assistance from the California Collaborative for Educational Excellence is necessary. When making this determination, primary consideration shall be given to the needs of the pupils in the school district.*
->
-> *(b) Technical assistance provided pursuant to this section shall be facilitated by the California Collaborative for Educational Excellence, in collaboration with the county superintendent of schools with jurisdiction over the school district, and shall focus on building the school district’s capacity to develop and implement actions and services responsive to pupil and community needs pursuant to Section 52071 in a manner that streamlines improvement efforts for the school district.*
-
-`r qualify` Eligible indicators are listed for the previous four years used in qualifying each student group: 2022, 2023, 2024, 2025. The criteria being met by the student group(s) each year may not have been identical from year to year.
+The results of the 2025 California School Dashboard indicate that `r initials` is eligible for Intensive Differentiated Assistance based on the performance of student groups on the Dashboard. Education Code 52072 states that the Solano County Office of Education shall provide intensive assistance when three or more pupil student groups meet the criteria for three or more consecutive years. The California Collaborative for Educational Excellence (CCEE) with the county superintendent of schools shall provide technical assistance to the school district. Using the eligibility criteria, `r initials` qualifies for Intensive Assistance as three or more student groups (`r student_group_count` in this case) have been eligible for DA for at least three out of four consecutive years. Eligible indicators are listed for the previous four years used in qualifying each student group: 2022, 2023, 2024, 2025. The criteria being met by the student group(s) each year may not have been identical from year to year.
 
 ```{r da_groups}
 #| echo: false
@@ -197,6 +189,7 @@ for (group in student_groups_list) {
       aes(label = currstatus, color = indicator),
       show.legend = FALSE
     ) +
+    scale_x_continuous(breaks = seq(2019, 2025, by = 1)) +
     scale_color_manual(values = indicator_colors) +
     labs(
       title = paste0(
@@ -232,6 +225,7 @@ for (group in student_groups_list) {
       aes(label = paste0(currstatus, "%"), color = indicator),
       show.legend = FALSE
     ) +
+    scale_x_continuous(breaks = seq(2019, 2025, by = 1)) +
     scale_y_continuous(labels = scales::label_percent()) +
     scale_color_manual(values = indicator_colors) +
     labs(

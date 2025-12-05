@@ -217,7 +217,10 @@ load_dashboard_file_from_cache <- function(
         # remove_empty(c("rows", "columns")) |>
         mutate(indicator = d_indicator, priority = priority) |>
         rename(
-          reportingyear = dplyr::any_of(c("reportingyear", "reporting_year"))
+          reportingyear = dplyr::any_of(
+            c("reportingyear", "reporting_year")
+          ),
+          changelevel = dplyr::any_of(c("changelevel", "change_level"))
         )
     },
     error = function(e) {

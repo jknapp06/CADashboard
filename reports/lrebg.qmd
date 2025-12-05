@@ -1,5 +1,4 @@
 ---
-5---
 format: 
   pdf:
     mainfont: Ebrima
@@ -12,10 +11,8 @@ format:
 editor: visual
 warning: false
 params:
-  params:
   district: "Dixon Unified"
-  initials: "DUSD"
-  year: "2024"
+  year: 2025
 ---
 
 ```{r setup}
@@ -27,6 +24,12 @@ library(flextable)
 library(janitor)
 library(openxlsx)
 library(here)
+
+if (interactive()) {
+  params <- rmarkdown::yaml_front_matter(
+    rstudioapi::getSourceEditorContext()$path
+  )$params
+}
 
 dashboard <- read_csv(here("data/ca_dashboard.csv")) |>
   filter(
@@ -86,9 +89,9 @@ status_colors <- c(
 
 ![](../app/www/SCOE_Logo.jpg){fig-align="left" width="127"}
 
-## `r params$initials` Needs Assessment Data Summary
+## `r params$district` Needs Assessment Data Summary `r params$year`
 
-This report summarizes LEA-level and/or student group results from the 2024 CA School Dashboard in support of the Learning Recovery Emergency Block Grant (LREBG).
+This report summarizes LEA-level and/or student group results from the `r params$year` CA School Dashboard in support of the Learning Recovery Emergency Block Grant (LREBG).
 
 ```{r low_ela_schools}
 #| echo: false
