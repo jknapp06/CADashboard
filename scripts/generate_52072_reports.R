@@ -60,8 +60,8 @@ leas_to_report <-
 
 for (lea in leas_to_report) {
   quarto::quarto_render(
-    here("reports/52072 Reports.qmd"),
-    output_file = paste(lea, "52072 Report.docx"),
+    here("reports/da_report_with_dta.qmd"),
+    output_file = paste(lea, "DA Report 2025.docx"),
     execute_params = list("lea" = lea)
   )
 }

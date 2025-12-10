@@ -159,7 +159,7 @@ status_colors <- c(
 #     starts_with("csi"),
 #     atsi_support
 #   ) |>
-#   filter(reportingyear == "2024", countyname == "Solano") |>
+#   filter(reportingyear == "2025", countyname == "Solano") |>
 #   mutate(
 #     student_group_wrap = str_wrap(student_group_long, 25),
 #     atsi_support = if_else(atsi_support == 1, "Eligible", "Not Eligible")
@@ -172,7 +172,8 @@ status_colors <- c(
 #       CSI_2021,
 #       CSI_2022,
 #       CSI_2023,
-#       CSI_2024
+#       CSI_2024,
+#       CSI_2025
 #     ),
 #     names_prefix = "CSI_",
 #     names_to = "year",

@@ -167,13 +167,13 @@ if (identical(environment(), globalenv()) && interactive()) {
   # # ---- 4. Read ESSA files ----
   message("Loading ESSA files...")
   raw_essa_list <- list(
-    essa25 = load_essa_xlsx_from_cache(
-      essa_urls$essa25,
-      sheet = 2,
-      start_row = 3,
-      cache_dir = cache_dir,
-      force = force
-    ),
+    # essa25 = load_essa_xlsx_from_cache(
+    #   essa_urls$essa25,
+    #   sheet = 2,
+    #   start_row = 3,
+    #   cache_dir = cache_dir,
+    #   force = force
+    # ),
     essa24 = load_essa_xlsx_from_cache(
       essa_urls$essa24,
       sheet = 2,
@@ -208,14 +208,14 @@ if (identical(environment(), globalenv()) && interactive()) {
       start_row = 3,
       cache_dir = cache_dir,
       force = force
-    ),
-    essa18 = load_essa_xlsx_from_cache(
-      essa_urls$essa18,
-      sheet = 1,
-      start_row = 3,
-      cache_dir = cache_dir,
-      force = force
     )
+    # essa18 = load_essa_xlsx_from_cache(
+    #   essa_urls$essa18,
+    #   sheet = 1,
+    #   start_row = 3,
+    #   cache_dir = cache_dir,
+    #   force = force
+    # )
   )
 
   essa <- normalize_essa(raw_essa_list)
@@ -478,6 +478,7 @@ if (identical(environment(), globalenv()) && interactive()) {
   write_csv(small_dashboard, here(out_dir, "solano_dashboard.csv"))
   write_csv(assistance, here(out_dir, "assistance.csv"))
   write_csv(essa, here(out_dir, "essa.csv"))
+  write_csv(dashboard_essa, here(out_dir, "dashboard_essa.csv"))
   write_csv(dashboard_essa, here(app_dir, "dashboard_essa.csv"))
   write_csv(dashboard_essa, file.path(are_dir, "dashboard_essa.csv"))
   write_csv(

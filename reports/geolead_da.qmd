@@ -1,12 +1,23 @@
 ---
-format:
-  docx:
+format: 
+  pdf:
+    mainfont: Ebrima
+    fontsize: 10pt
+    keep-tex: true
+    margin-top: 0.5in
+    margin-bottom: 0.75in
+    geometry:
+    - top=0.5in
+    - left=.75in
+    - textwidth=5in
+    - marginparsep=.25in
+    - marginparwidth=1.75in
+    - bottom=.75in
     fig-dpi: 300
-    fig-width: 7.5
-    reference-doc: scoe-are-report.docx
 editor: visual
 params:
-  lea: Vacaville Unified
+  lea: "Vacaville Unified"
+  year: "2025"
 ---
 
 ```{r setup}
@@ -16,6 +27,14 @@ library(tidyverse)
 library(flextable)
 library(ggrepel)
 library(ggtext)
+library(here)
+library(DT)
+library(wesanderson)
+library(fontawesome)
+library(showtext)
+library(formattable)
+library(DT)
+library(flextable)
 library(here)
 
 if (interactive()) {
@@ -85,7 +104,6 @@ long_da_groups <-
   ) |>
   filter(da_years >= 3) |>
   select(districtname, student_group_long, `2023`, `2024`, `2025`)
-
 ```
 
 ```{r create_variables}
@@ -110,7 +128,7 @@ initials <-
 
 # `r params$lea` Targeted Assistance
 
-The results of the 2025 California School Dashboard indicate `r initials` is eligible for Targeted Differentiated Assistance based on the performance of student groups on the Dashboard. Education Code 52071(f) states that the Solano County Office of Education shall provide targeted assistance when one or more pupil student groups meet the criteria pursuant for three or more consecutive years. The geographic lead agency shall collaborate with the county superintendent of schools and provide technical assistance to the school district. Using the eligibility criteria, `r initials` has qualified for Targeted Assistance based on the same student groups who meet the criteria for three or more consecutive years:
+The results of the 2025 California School Dashboard indicate `r initials` is eligible for Targeted Differentiated Assistance based on the performance of student groups on the Dashboard. Education Code 52071(f) states that the Solano County Office of Education shall provide targeted assistance when one or more pupil student groups meet the criteria for three or more consecutive years. The geographic lead agency shall collaborate with the county superintendent of schools and provide technical assistance to the school district. Using the eligibility criteria, `r initials` has qualified for Targeted Assistance based on the same student groups who meet the criteria for three or more consecutive years:
 
 ```{r da_groups}
 #| echo: false

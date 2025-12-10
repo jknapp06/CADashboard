@@ -14,23 +14,24 @@ format:
     - marginparwidth=1.75in
     - bottom=.75in
     fig-dpi: 300
+    fig-width: 8
+    fig-height: 5
 editor: visual
 params:
-  lea: "Vacaville Unified"
-  year: "2025"
+    lea: "Vallejo City Unified"
+    year: "2025"
 ---
 
-```{r setup, include = FALSE}
+```{r setup}
+#| include: false
+
 library(tidyverse)
-library(DT)
-library(wesanderson)
-library(fontawesome)
-library(ggtext)
-library(showtext)
-library(formattable)
-library(DT)
 library(flextable)
+library(ggrepel)
+library(ggtext)
 library(here)
+library(fontawesome)
+library(showtext)
 
 if (interactive()) {
   params <- rmarkdown::yaml_front_matter(
@@ -39,28 +40,14 @@ if (interactive()) {
 }
 
 dashboard <- read_csv(here("data/solano_dashboard.csv")) |>
+  filter(
+    rtype == "D" &
+      districtname == params$lea |
+      charter_flag == "Y" & rtype == "S" & schoolname == params$lea
+  ) |>
   mutate(
     statuslevel = as_factor(statuslevel),
-    reportingyear = fct_relevel(as_factor(reportingyear), "2019"),
-    indicator = case_match(
-      indicator,
-      "ELA" ~ "ELA (DFS)",
-      "Math" ~ "Math (DFS)",
-      "science" ~ "Science",
-      "college/career" ~ "College/\nCareer",
-      .default = indicator
-    ),
-    indicator = fct_relevel(
-      as_factor(indicator),
-      "ELA (DFS)",
-      "Math (DFS)",
-      "ELPI",
-      "absenteeism",
-      "graduation",
-      "suspension",
-      "College/\nCareer",
-      "Science"
-    ),
+    # reportingyear = fct_relevel(as_factor(reportingyear), "2019"),
     studentgroup = as_factor(studentgroup),
     student_group_long = fct_relevel(
       as_factor(student_group_long),
@@ -87,12 +74,48 @@ dashboard <- read_csv(here("data/solano_dashboard.csv")) |>
     ),
     charter_flag = if_else(is.na(charter_flag), "N", charter_flag),
     color = as_factor(color),
+    indicator = case_match(
+      indicator,
+      "ELA" ~ "ELA (DFS)",
+      "Math" ~ "Math (DFS)",
+      "science" ~ "Science",
+      "college/career" ~ "College/\nCareer",
+      .default = indicator
+    ),
+    indicator = fct_relevel(
+      as_factor(indicator),
+      "ELA (DFS)",
+      "Math (DFS)",
+      "ELPI",
+      "absenteeism",
+      "graduation",
+      "suspension",
+      "College/\nCareer",
+      "Science"
+    ),
     lea = if_else(charter_flag == "Y", schoolname, districtname)
+  ) |>
+  select(
+    reportingyear,
+    districtname,
+    schoolname,
+    student_group_long,
+    indicator,
+    currnumer,
+    currdenom,
+    currstatus,
+    color,
+    change,
+    changelevel,
+    priority_eligible,
+    indicator_eligible,
+    charter_flag,
+    curr_prep
   )
 
 is_charter <-
   dashboard |>
-  filter(lea == params$lea) |>
+  filter(districtname == params$lea | schoolname == params$lea) |>
   pull(charter_flag) |>
   nth(1)
 
@@ -106,15 +129,54 @@ status_colors <- c(
   "darkgrey"
 )
 
-# da_leas <-
-#   dashboard |>
-#   filter(priority_eligible == TRUE) |>
-#   pull(lea) |>
-#   unique()
-#
-# lea_selection = 1
-font_add('fa-solid', '../fonts/fa-solid-900.ttf')
+indicator_colors = c(
+  "ELA (DFS)" = "#CC6677",
+  "Math (DFS)" = "#882255",
+  "ELPI" = "#AA4499",
+  "College/\nCareer" = "#332288",
+  "graduation" = "#88CCEE",
+  "absenteeism" = "#44AA99",
+  "suspension" = "#117733",
+  "Science" = "#DDCC77"
+)
 
+da_groups <-
+  dashboard |>
+  mutate(reportingyear = as_factor(reportingyear)) |>
+  filter(
+    reportingyear %in% c(2025, 2024, 2023, 2022, 2019, 2018, 2017),
+    indicator_eligible == TRUE
+  ) |>
+  select(-indicator_eligible)
+
+wide_da_groups <-
+  da_groups |>
+  select(
+    reportingyear,
+    districtname,
+    schoolname,
+    student_group_long,
+    indicator
+  ) |>
+  arrange(reportingyear) |>
+  pivot_wider(
+    names_from = reportingyear,
+    values_from = indicator,
+    values_fn = list
+  ) |>
+  arrange(districtname, schoolname, student_group_long)
+
+clean_groups <-
+  wide_da_groups |>
+  mutate(
+    across(where(is.list), ~ map_chr(., ~ paste(., collapse = "; "))),
+    da_years = rowSums(across(matches("^\\d{4}$"), ~ . != ""))
+  ) |>
+  filter(da_years >= 3) |>
+  mutate(`2019` = if ("2019" %in% names(wide_da_groups)) `2019` else "") |>
+  select(districtname, student_group_long, `2022`, `2023`, `2024`, `2025`)
+
+font_add('fa-solid', here('fonts/fa-solid-900.ttf'))
 ```
 
 ![](images/SCOE_Logo.jpg){fig-align="left" width="127"}
@@ -148,9 +210,7 @@ html_wrap <- function(s, width = 17) {
 dashboard_filtered <-
   dashboard |>
   filter(
-    lea == params$lea,
     reportingyear == params$year,
-    charter_flag == "Y" | rtype == "D",
     student_group_long %in%
       c(
         "All students",
@@ -310,29 +370,8 @@ eligible_indicators <-
   pull(indicator) |>
   unique()
 
-dashboard |>
+dashboard_filtered |>
   filter(
-    lea == params$lea,
-    reportingyear == params$year,
-    charter_flag == "Y" | rtype == "D",
-    student_group_long %in%
-      c(
-        "All students",
-        "Black/African American",
-        "American Indian or Alaska Native",
-        "Asian",
-        "Filipino",
-        "Hispanic",
-        "Pacific Islander",
-        "White",
-        "Multiple Races/Two or more",
-        "Socioeconomically Disadvantaged",
-        "Homeless Youth",
-        "Students with Disabilities",
-        "Foster Youth",
-        "English Learner",
-        "Long-Term English Learner"
-      ),
     indicator_eligible == TRUE
   ) |>
   mutate(
@@ -385,4 +424,201 @@ dashboard |>
 
 `r ifelse(sum(c("ELA (DFS)", "Math (DFS)", "Science") %in% eligible_indicators) > 0, "\\* No numerator for this indicator.","")`<br> <!-- `r ifelse("College/\nCareer" %in% eligible_indicators, "† No numerator provided for this indicator.","")` -->
 
-Report prepared by Solano County Office of Education Assessment Research and Evaluation team. Email Dr. Tacey Rodgers trodgers\@solanocoe.net and Joseph Knapp jknapp\@solanocoe.net with any questions.
+```{r create_variables}
+#| include: false
+
+student_groups_list <- unique(clean_groups$student_group_long)
+student_group_count <- length(student_groups_list)
+
+initials <-
+  switch(
+    params$lea,
+    "Solano County Office of Education" = "SCOE",
+    "Benicia Unified" = "BUSD",
+    "Dixon Unified" = "DUSD",
+    "Fairfield-Suisun Unified" = "FSUSD",
+    "Travis Unified" = "TUSD",
+    "Vacaville Unified" = "VUSD",
+    "Vallejo City Unified" = "VCUSD",
+    "UNKNOWN"
+  )
+
+```
+
+# `r params$lea` Intensive Assistance
+
+The results of the 2025 California School Dashboard indicate that `r initials` is eligible for Intensive Differentiated Assistance based on the performance of student groups on the Dashboard. Education Code 52072 states that the Solano County Office of Education shall provide intensive assistance when three or more pupil student groups meet the criteria for three or more consecutive years. The California Collaborative for Educational Excellence (CCEE) with the county superintendent of schools shall provide technical assistance to the school district. Using the eligibility criteria, `r initials` qualifies for Intensive Assistance as three or more student groups (`r student_group_count` in this case) have been eligible for DA for at least three out of four consecutive years. Eligible indicators are listed for the previous four years used in qualifying each student group: 2022, 2023, 2024, 2025. The criteria being met by the student group(s) each year may not have been identical from year to year.
+
+```{r da_groups}
+#| echo: false
+
+names_groups <- names(clean_groups)
+
+clean_groups |>
+  select(-districtname) |>
+  flextable() |>
+  set_header_labels(values = list("student_group_long" = "Student Group")) |>
+  width(width = 1.3) |>
+  add_header_row(
+    values = c("Student Group", "DA Eligible Indicators"),
+    colwidths = c(1, ncol(clean_groups) - 2)
+  ) |>
+  merge_v(part = "header", j = 1) |>
+  theme_vanilla() |>
+  align(align = "center", part = "header") |>
+  align(align = "left", part = "header", j = 1) |>
+  set_caption(paste(
+    params$lea,
+    "student groups eligible for DA three of the last four years."
+  ))
+
+
+```
+
+{{< pagebreak >}}
+
+## Indicator Trends for Student Groups Eligible for Intensive Assistance
+
+```{r student_groups}
+#| echo: false
+#| warning: false
+#| results: asis
+#| fig-column: screen
+
+wrap_length <- 20
+
+for (group in student_groups_list) {
+  academic <-
+    dashboard |>
+    filter(student_group_long == group) |>
+    filter(indicator %in% c("ELA (DFS)", "Math (DFS)"))
+
+  min_year <- min(academic$reportingyear)
+  max_year <- max(academic$reportingyear)
+
+  academic_graph <-
+    academic |>
+    ggplot(aes(
+      x = reportingyear,
+      y = currstatus,
+      group = indicator,
+      color = indicator
+    )) +
+    geom_line(linewidth = 1.3) +
+    geom_point(size = 2.2) +
+    geom_text_repel(
+      aes(label = currstatus, color = indicator),
+      show.legend = FALSE
+    ) +
+    scale_color_manual(values = indicator_colors) +
+    scale_x_continuous(breaks = seq(min_year, max_year, by = 1)) +
+    labs(
+      title = paste0(
+        "Status of **academic indicators** over time for<br>the **",
+        group,
+        "** student group in ",
+        params$lea
+      ),
+      x = "Year",
+      y = "Status (Distance from Standard)",
+      color = "Indicator",
+      caption = "Colors not reflective of assigned Dashboard colors."
+    ) +
+    theme_minimal() +
+    theme(plot.title = element_markdown(hjust = 0.5, linewidth = wrap_length))
+
+  print(academic_graph)
+  cat("\n\n\n")
+
+  if (group %in% c("English Learner", "Long-Term English Learner")) {
+    elpi <-
+      dashboard |>
+      filter(student_group_long == group) |>
+      filter(indicator == "ELPI")
+
+    min_year <- min(elpi$reportingyear)
+    max_year <- max(elpi$reportingyear)
+
+    elpi_graph <-
+      elpi |>
+      ggplot(aes(
+        x = reportingyear,
+        y = currstatus,
+        group = indicator,
+        color = indicator
+      )) +
+      geom_line(linewidth = 1.3) +
+      geom_point(size = 2.2) +
+      geom_text_repel(
+        aes(label = currstatus, color = indicator),
+        show.legend = FALSE
+      ) +
+      scale_color_manual(values = indicator_colors) +
+      scale_x_continuous(breaks = seq(min_year, max_year, by = 1)) +
+      labs(
+        title = paste0(
+          "Status of ELPI over time for<br>the **",
+          group,
+          "** student group in ",
+          params$lea
+        ),
+        x = "Year",
+        y = "Status (Percent making progress)",
+        color = "Indicator",
+        caption = "Colors not reflective of assigned Dashboard colors."
+      ) +
+      theme_minimal() +
+      theme(plot.title = element_markdown(hjust = 0.5, linewidth = wrap_length))
+
+    print(elpi_graph)
+    cat("\n\n\n")
+  }
+
+  nonacademic <-
+    dashboard |>
+    filter(student_group_long == group) |>
+    filter(
+      indicator %in%
+        c("absenteeism", "graduation", "suspension", "college/career")
+    )
+
+  min_year <- min(nonacademic$reportingyear)
+  max_year <- max(nonacademic$reportingyear)
+
+  nonacademic_graph <-
+    nonacademic |>
+    ggplot(aes(
+      x = reportingyear,
+      y = currstatus / 100,
+      group = indicator,
+      color = indicator
+    )) +
+    geom_line(linewidth = 1.3) +
+    geom_point(size = 2.2) +
+    geom_text_repel(
+      aes(label = paste0(currstatus, "%"), color = indicator),
+      show.legend = FALSE
+    ) +
+    scale_y_continuous(labels = scales::label_percent()) +
+    scale_x_continuous(breaks = seq(min_year, max_year, by = 1)) +
+    scale_color_manual(values = indicator_colors) +
+    labs(
+      title = paste0(
+        "Status of **non-academic indicators** over time for<br>the **",
+        group,
+        "** student group in ",
+        params$lea
+      ),
+      x = "Year",
+      y = "Status (Percent)",
+      color = "Indicator",
+      caption = "CCI only reported for 2019, 2023, 2024, and 2025, where applicable."
+    ) +
+    theme_minimal() +
+    theme(plot.title = element_markdown(hjust = 0.5, linewidth = wrap_length))
+
+  print(nonacademic_graph)
+  cat("\\newpage\n\n")
+}
+
+```

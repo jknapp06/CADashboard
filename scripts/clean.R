@@ -278,10 +278,31 @@ normalize_essa <- function(raw_list) {
       ))
     ) |>
     mutate(reportingyear = parse_number(reportingyear)) |>
+    # Select the assistance status column that matches the reporting year
+    mutate(
+      essa_status = case_when(
+        reportingyear == 2018 ~ assistance_status2018,
+        reportingyear == 2019 ~ assistance_status2019,
+        reportingyear == 2020 ~ assistance_status2020,
+        reportingyear == 2021 ~ assistance_status2021,
+        reportingyear == 2022 ~ assistance_status2022,
+        reportingyear == 2023 ~ assistance_status2023,
+        reportingyear == 2024 ~ assistance_status2024,
+        TRUE ~ NA_character_
+      )
+    ) |>
+    # Pivot student groups
     pivot_longer(
       cols = intersect(names(essa_all), grp_cols),
       names_to = "studentgroup",
       values_to = "atsi_support"
+    ) |>
+    mutate(
+      studentgroup = if_else(
+        studentgroup == "tom",
+        "MR",
+        str_to_upper(studentgroup)
+      )
     )
 }
 

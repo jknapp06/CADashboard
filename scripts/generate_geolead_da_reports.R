@@ -13,8 +13,8 @@ districts <-
 
 for (district in districts) {
   quarto::quarto_render(
-    here("reports/geolead_da.qmd"),
-    output_file = paste(district, "Geolead DA Report 2025.docx"),
+    here("reports/da_report_with_geolead.qmd"),
+    output_file = paste(district, "DA Report 2025.docx"),
     execute_params = list("lea" = district)
   )
 }

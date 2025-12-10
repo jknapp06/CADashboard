@@ -335,7 +335,6 @@ load_assistance_xlsx_from_cache <- function(
   res
 }
 
-# load_essa_xlsx_from_cache: same behavior as assistance loader but for ESSA files
 load_essa_xlsx_from_cache <- function(
   path_or_url,
   sheet = 2,
@@ -344,61 +343,124 @@ load_essa_xlsx_from_cache <- function(
   force = FALSE,
   date_stamp = Sys.Date()
 ) {
+  # Validate inputs
+  stopifnot(
+    "path_or_url must be a character string" = is.character(path_or_url),
+    "sheet must be a positive integer" = is.numeric(sheet) && sheet > 0,
+    "start_row must be a positive integer" = is.numeric(start_row) &&
+      start_row > 0
+  )
+
   # Print a message indicating which file is being processed
   message(glue("Loading ESSA file from {path_or_url}"))
 
-  if (grepl("^https?://", path_or_url)) {
-    pth <- safe_download_file(
-      path_or_url,
-      cache_dir = cache_dir,
-      force = force,
-      date_stamp = date_stamp
-    )
-    if (is.null(pth)) {
-      pth <- latest_cached_file(path_or_url, cache_dir = cache_dir)
-      if (is.null(pth)) {
-        warning(glue(
-          "No cached ESSA file available for {path_or_url}; skipping."
-        ))
-        return(NULL)
+  # Determine file path
+  pth <- tryCatch(
+    {
+      if (grepl("^https?://", path_or_url)) {
+        # Attempt to download or find cached file
+        downloaded_path <- safe_download_file(
+          path_or_url,
+          cache_dir = cache_dir,
+          force = force,
+          date_stamp = date_stamp
+        )
+
+        if (is.null(downloaded_path)) {
+          cached_path <- latest_cached_file(path_or_url, cache_dir = cache_dir)
+
+          if (is.null(cached_path)) {
+            warning(glue(
+              "No cached ESSA file available for {path_or_url}; skipping."
+            ))
+            return(NULL)
+          }
+          cached_path
+        } else {
+          downloaded_path
+        }
+      } else {
+        # Local file path
+        path_or_url
       }
+    },
+    error = function(e) {
+      warning(glue("Error finding ESSA file: {e$message}"))
+      return(NULL)
     }
-  } else {
-    pth <- path_or_url
+  )
+
+  # Validate file path
+  if (is.null(pth) || !file.exists(pth)) {
+    warning(glue("File not found: {pth}"))
+    return(NULL)
   }
 
+  # Read and process file
   res <- tryCatch(
     {
-      openxlsx::read.xlsx(pth, sheet = sheet, startRow = start_row) |>
+      # Attempt to read Excel file
+      raw_data <- openxlsx::read.xlsx(
+        pth,
+        sheet = sheet,
+        startRow = start_row,
+        colNames = TRUE
+      )
+
+      # Convert to tibble with robust error handling
+      essa_data <- raw_data |>
         as_tibble() |>
-        janitor::clean_names() |>
-        # make sure all group columns are numberic if possible
+        janitor::clean_names()
+
+      # Safely convert columns to numeric
+      numeric_cols <- c(
+        "aa",
+        "ai",
+        "as",
+        "el",
+        "fi",
+        "fos",
+        "hi",
+        "hom",
+        "pi",
+        "sed",
+        "swd",
+        "tom",
+        "wh",
+        "enrollment_count"
+      )
+
+      # Only attempt conversion for columns that exist
+      existing_numeric_cols <- intersect(numeric_cols, names(essa_data))
+
+      essa_data <- essa_data |>
         mutate(across(
-          .cols = c(
-            aa,
-            ai,
-            as,
-            el,
-            fi,
-            fos,
-            hi,
-            hom,
-            pi,
-            sed,
-            swd,
-            tom,
-            wh,
-            enrollment_count
-          ),
+          .cols = all_of(existing_numeric_cols),
           .fns = ~ suppressWarnings(as.numeric(.x)),
           .names = "{.col}"
         ))
+
+      # Additional validation
+      if (nrow(essa_data) == 0) {
+        warning(glue("No data found in ESSA file: {pth}"))
+        return(NULL)
+      }
+
+      essa_data
     },
     error = function(e) {
-      warning(glue("Failed to read ESSA file {pth}: {e$message}"))
+      warning(glue(
+        "Failed to read ESSA file {pth}: {e$message}\n",
+        "File details:\n",
+        "  Exists: {file.exists(pth)}\n",
+        "  Size: {file.size(pth)} bytes\n",
+        "  Permissions: {file.access(pth, 4) == 0}"
+      ))
       NULL
     }
   )
+
+  # Return processed data or NULL
   res
 }
 

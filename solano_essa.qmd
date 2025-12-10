@@ -1,0 +1,105 @@
+---
+title: "Solano ESSA 2025"
+format: 
+  html:
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    number-sections: true
+    theme: cosmo
+params:
+  year: 2024
+---
+
+```{r setup}
+#| include=FALSE
+
+library(tidyverse)
+library(here)
+library(flextable)
+
+if (interactive()) {
+  params <- rmarkdown::yaml_front_matter(
+    rstudioapi::getSourceEditorContext()$path
+  )$params
+}
+
+dashboard <- read_csv(here("data", "dashboard_essa.csv"))
+
+```
+
+## Solano ESSA 2025
+
+```{r current_essa}
+#| echo = FALSE
+
+assistance_var <- paste0("essa_status", params$year)
+
+essa_current <-
+  dashboard |>
+  filter(reportingyear == params$year) |>
+  drop_na(essa_status) |>
+  distinct(districtname, schoolname, essa_status) |>
+  count(districtname, essa_status) |>
+  arrange(districtname, essa_status)
+
+essa_current |>
+  flextable() |>
+  merge_v(part = "body", j = 1) |>
+  set_header_labels(
+    districtname = "District Name",
+    essa_status = "ESSA Status",
+    n = "Number of Schools"
+  ) |>
+  theme_vanilla()
+
+```
+
+## ESSA Schools Over Time
+```{r essa_over_time}
+#| echo = FALSE
+
+essa_over_time <-
+  dashboard |>
+  drop_na(essa_status) |>
+  distinct(reportingyear, districtname, schoolname, essa_status) |>
+  count(reportingyear, districtname, essa_status) |>
+  arrange(districtname, reportingyear, essa_status)
+
+essa_over_time |>
+  filter(essa_status != "No Status") |>
+  ggplot(aes(x = reportingyear, y = n, color = essa_status)) +
+  geom_line() +
+  geom_point() +
+  facet_wrap(~districtname) +
+  labs(
+    title = "ESSA Schools Over Time by District",
+    x = "Reporting Year",
+    y = "Number of Schools",
+    color = "ESSA Status"
+  ) +
+  theme_minimal()
+```
+
+## ATSI Groups `r params$year`
+```{r atsi_groups}
+#| echo = FALSE
+
+atsi_essa <-
+  dashboard |>
+  filter(reportingyear == params$year, atsi_support == 1) |>
+  drop_na(essa_status) |>
+  distinct(districtname, student_group_long) |>
+  arrange(districtname, student_group_long)
+
+atsi_essa |>
+  flextable() |>
+  merge_v(part = "body", j = c(1)) |>
+  set_header_labels(
+    districtname = "District Name",
+    student_group_long = "Student Group",
+    atsi_total = "ATSI Support Count"
+  ) |>
+  theme_vanilla()
+```
+
