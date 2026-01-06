@@ -64,7 +64,7 @@ assistance_urls <- list(
 
 # ESSA files (from your original script)
 essa_urls <- list(
-  # essa25 = "https://www.cde.ca.gov/sp/sw/t1/documents/essaassistance25.xlsx",
+  essa25 = "https://www.cde.ca.gov/sp/sw/t1/documents/essaassistance25.xlsx",
   essa24 = "https://www.cde.ca.gov/sp/sw/t1/documents/essaassistance24.xlsx",
   essa23 = "https://www.cde.ca.gov/sp/sw/t1/documents/essaassistance23.xlsx",
   essa22 = "https://www.cde.ca.gov/sp/sw/t1/documents/essaassistance22.xlsx", # double-check if needed

@@ -622,3 +622,5 @@ for (group in student_groups_list) {
 }
 
 ```
+
+Report prepared by Solano County Office of Education Assessment Research and Evaluation team. Email Dr. Tacey Rodgers trodgers@solanocoe.net and Joseph Knapp jknapp@solanocoe.net with any questions.

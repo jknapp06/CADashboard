@@ -275,7 +275,9 @@ normalize_essa <- function(raw_list) {
         "reportingyear",
         "reporting_year",
         "ReportingYear"
-      ))
+      )),
+      csi_years = cs_iyears,
+      atsi_years = ats_iyears
     ) |>
     mutate(reportingyear = parse_number(reportingyear)) |>
     # Select the assistance status column that matches the reporting year
@@ -288,8 +290,19 @@ normalize_essa <- function(raw_list) {
         reportingyear == 2022 ~ assistance_status2022,
         reportingyear == 2023 ~ assistance_status2023,
         reportingyear == 2024 ~ assistance_status2024,
+        reportingyear == 2025 ~ assistance_status2025,
         TRUE ~ NA_character_
-      )
+      ),
+      csi_years = if_else(
+        is.na(csi_years) | "N/A" == csi_years,
+        0,
+        parse_number(csi_years)
+      ),
+      atsi_years = if_else(
+        is.na(atsi_years) | "N/A" == atsi_years,
+        0,
+        parse_number(atsi_years)
+      ),
     ) |>
     # Pivot student groups
     pivot_longer(

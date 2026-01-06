@@ -146,39 +146,41 @@ status_colors <- c(
   "darkslategrey"
 )
 
-# solano_csi <-
-#   dashboard |>
-#   select(
-#     reportingyear,
-#     countyname,
-#     districtname,
-#     schoolname,
-#     charter_flag,
-#     student_group_long,
-#     assistance_status,
-#     starts_with("csi"),
-#     atsi_support
-#   ) |>
-#   filter(reportingyear == "2025", countyname == "Solano") |>
-#   mutate(
-#     student_group_wrap = str_wrap(student_group_long, 25),
-#     atsi_support = if_else(atsi_support == 1, "Eligible", "Not Eligible")
-#   ) |>
-#   pivot_longer(
-#     cols = c(
-#       CSI_2018,
-#       CSI_2019,
-#       # CSI_2020,
-#       CSI_2021,
-#       CSI_2022,
-#       CSI_2023,
-#       CSI_2024,
-#       CSI_2025
-#     ),
-#     names_prefix = "CSI_",
-#     names_to = "year",
-#     values_to = "csi_status"
-#   )
+solano_csi <-
+  dashboard |>
+  select(
+    reportingyear,
+    countyname,
+    districtname,
+    schoolname,
+    charter_flag,
+    student_group_long,
+    starts_with("assistance_status"),
+    essa_status,
+    atsi_support
+  ) |>
+  filter(reportingyear == "2025", countyname == "Solano") |>
+  mutate(
+    student_group_wrap = str_wrap(student_group_long, 25),
+    atsi_support = if_else(atsi_support == 1, "Eligible", "Not Eligible")
+  ) |>
+  pivot_longer(
+    cols = c(
+      assistance_status2018,
+      assistance_status2019,
+      assistance_status2020,
+      assistance_status2021,
+      assistance_status2022,
+      assistance_status2023,
+      assistance_status2024,
+      assistance_status2025
+    ),
+    names_prefix = "assistance_status",
+    names_to = "year",
+    values_to = "csi_assistance_status"
+  ) |>
+  drop_na(csi_assistance_status) |>
+  distinct()
 
 #########################
 #                       #
@@ -205,12 +207,12 @@ ui <- navbarPage(
           choices = years$reportingyear,
           selected = "2025"
         ),
-        selectInput(
-          "county",
-          label = "Select County",
-          choices = counties$countyname,
-          selected = "Solano"
-        ),
+        # selectInput(
+        #   "county",
+        #   label = "Select County",
+        #   choices = counties$countyname,
+        #   selected = "Solano"
+        # ),
         selectInput(
           "lea",
           label = "Select LEA",
@@ -273,12 +275,12 @@ ui <- navbarPage(
           choices = years$reportingyear,
           selected = "2025"
         ),
-        selectInput(
-          "da_county",
-          label = "Select County",
-          choices = counties$countyname,
-          selected = "Solano"
-        ),
+        # selectInput(
+        #   "da_county",
+        #   label = "Select County",
+        #   choices = counties$countyname,
+        #   selected = "Solano"
+        # ),
         checkboxGroupInput(
           "da_districts",
           label = "Select Districts/LEAs",
@@ -303,35 +305,35 @@ ui <- navbarPage(
         DT::dataTableOutput("county_da_table")
       )
     )
-  )
-  # ,
-  # tabPanel(
-  #   "ESSA Eligibility",
-  #   sidebarLayout(
-  #     sidebarPanel(
-  #       checkboxGroupInput(
-  #         "essa_districts",
-  #         choices = unique(solano_csi$districtname),
-  #         selected = unique(solano_csi$districtname),
-  #         label = "District"
-  #       ),
-  #       selectInput(
-  #         "essa_charters",
-  #         label = "Include charter schools?",
-  #         choices = c("All schools", "No charters", "Only charters"),
-  #         selected = "All schools"
-  #       )
-  #     ),
+  ),
+  tabPanel(
+    "ESSA Eligibility",
+    sidebarLayout(
+      sidebarPanel(
+        checkboxGroupInput(
+          "essa_districts",
+          choices = unique(solano_csi$districtname),
+          selected = unique(solano_csi$districtname),
+          label = "District"
+        ),
+        selectInput(
+          "essa_charters",
+          label = "Include charter schools?",
+          choices = c("All schools", "No charters", "Only charters"),
+          selected = "All schools"
+        )
+      ),
 
-  #     # Show a plot of the generated distribution
-  #     mainPanel(
-  #       tabsetPanel(
-  #         tabPanel("CSI", plotOutput("csi_plot")),
-  #         tabPanel("ATSI", plotOutput("atsi_plot"))
-  #       )
-  #     )
-  #   )
-  # )
+      # Show a plot of the generated distribution
+      mainPanel(
+        tabsetPanel(
+          tabPanel("CSI", plotOutput("csi_plot")),
+          tabPanel("ATSI", plotOutput("atsi_plot"))
+        )
+      )
+    )
+  )
+  # ------------------
   # ,
   #   tabPanel("Map",
   #          sidebarLayout(
@@ -366,8 +368,8 @@ server <- function(input, output) {
   # District Priorities ----------
 
   dashboard_county <- reactive(
-    input$county
-    # "Solano"
+    # input$county
+    "Solano"
   )
 
   lea_options <- reactive(
@@ -927,7 +929,8 @@ Please switch to the status tab for 2022 data or choose a different year to see 
 
   da_district_options <- reactive(
     districts |>
-      filter(countyname == input$da_county) |>
+      # filter(countyname == input$da_county) |>
+      filter(countyname == "Solano") |>
       distinct()
   )
 
@@ -950,7 +953,8 @@ Please switch to the status tab for 2022 data or choose a different year to see 
           rtype == "X" |
           (charter_check() & charter_flag == "Y" & rtype == "S"),
         reportingyear == input$da_year,
-        countyname == input$da_county,
+        # countyname == input$da_county,
+        countyname == "Solano",
         districtname %in% input$da_districts,
         student_group_long %in% input$da_groups
       )
@@ -1059,25 +1063,34 @@ Please switch to the status tab for 2022 data or choose a different year to see 
       filter(
         solano_csi$districtname %in% input$essa_districts,
         (input$essa_charters == "All schools") |
-          (input$essa_charters == "No charters" & solano_csi$Charter == "*") |
-          (input$essa_charters == "Only charters" & solano_csi$Charter != "*")
+          (input$essa_charters == "No charters" &
+            solano_csi$charter_flag == "N") |
+          (input$essa_charters == "Only charters" &
+            solano_csi$charter_flag == "Y")
+      ) |>
+      mutate(
+        schoolname = str_wrap(schoolname, 30)
       )
   })
 
   output$atsi_plot <- renderPlot(
     height = function() {
-      selected <- essa_schools()
-      length(unique(selected$schoolname)) * 20 + 100
+      selected <- filter(
+        essa_schools(),
+        year == "2025",
+        csi_assistance_status == "ATSI"
+      )
+      length(unique(selected$schoolname)) * 35 + 100
     },
     {
       essa_schools() |>
-        filter(year == "2024", csi_status == "ATSI") |>
+        filter(year == "2025", csi_assistance_status == "ATSI") |>
         ggplot() +
         geom_tile(
           mapping = aes(
             x = student_group_wrap,
             y = schoolname,
-            fill = factor(ATSIsupport)
+            fill = factor(atsi_support)
           )
         ) +
         scale_fill_manual(
@@ -1085,11 +1098,12 @@ Please switch to the status tab for 2022 data or choose a different year to see 
         ) +
         scale_x_discrete(position = "top") +
         labs(
-          title = "ATSI Eligibility by student Group in 2024",
+          title = "ATSI Eligibility by student Group in 2025",
           x = "Student Group",
           y = NULL,
           fill = "ATSI Eligibility"
         ) +
+        guides(fill = guide_legend(position = "bottom")) +
         theme_minimal() +
         theme(
           text = element_text(size = 14),
@@ -1103,7 +1117,7 @@ Please switch to the status tab for 2022 data or choose a different year to see 
   output$csi_plot <- renderPlot(
     height = function() {
       selected <- essa_schools()
-      length(unique(selected$schoolname)) * 20 + 100
+      length(unique(selected$schoolname)) * 30 + 100
     },
     {
       essa_schools() |>
@@ -1113,7 +1127,7 @@ Please switch to the status tab for 2022 data or choose a different year to see 
             y = reorder(schoolname, desc(schoolname))
           )
         ) +
-        geom_tile(mapping = aes(fill = csi_status)) +
+        geom_tile(mapping = aes(fill = csi_assistance_status)) +
         labs(
           x = "Year",
           y = NULL,
@@ -1126,10 +1140,12 @@ Please switch to the status tab for 2022 data or choose a different year to see 
             "No Status" = "#BBBBBB",
             "CSI Grad" = "#56B4E9",
             "CSI Low Perform" = "#009E73",
-            "ATSI" = "#CC79A7"
+            "ATSI" = "#CC79A7",
+            "TSI" = "#F0E442"
           )
         ) +
         scale_x_discrete(position = "top") +
+        guides(fill = guide_legend(position = "top")) +
         theme_minimal() +
         theme(
           text = element_text(size = 14),

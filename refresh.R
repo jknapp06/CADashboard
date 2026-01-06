@@ -167,13 +167,13 @@ if (identical(environment(), globalenv()) && interactive()) {
   # # ---- 4. Read ESSA files ----
   message("Loading ESSA files...")
   raw_essa_list <- list(
-    # essa25 = load_essa_xlsx_from_cache(
-    #   essa_urls$essa25,
-    #   sheet = 2,
-    #   start_row = 3,
-    #   cache_dir = cache_dir,
-    #   force = force
-    # ),
+    essa25 = load_essa_xlsx_from_cache(
+      essa_urls$essa25,
+      sheet = 2,
+      start_row = 3,
+      cache_dir = cache_dir,
+      force = force
+    ),
     essa24 = load_essa_xlsx_from_cache(
       essa_urls$essa24,
       sheet = 2,

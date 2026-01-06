@@ -1,32 +1,36 @@
 # Generate CSI reports
 
 library(tidyverse)
+library(here)
 
-essa <- read_csv("data/dashboard_essa.csv") %>% 
-  filter(countyname == "Solano")
+essa <- read_csv(here("data/dashboard_essa.csv")) |>
+  filter(countyname == "Solano", reportingyear == 2025)
 
 # list all districts and DA eligible charters
 
-graduation <-  
-  essa %>%
-  filter(CSI_2024 == "CSI Grad") %>% 
-  pull(schoolname) %>% 
+graduation <-
+  essa |>
+  filter(essa_status == "CSI Grad") |>
+  pull(schoolname) |>
   unique()
 
-low_perform <-  
-  essa %>%
-  filter(CSI_2024 == "CSI Low Perform") %>% 
-  pull(schoolname) %>% 
+low_perform <-
+  essa |>
+  filter(essa_status == "CSI Low Perform") |>
+  pull(schoolname) |>
   unique()
 
 for (school in graduation) {
-    quarto::quarto_render("csi_graduation_one_page.qmd",
-                          output_file = paste(school, "CSI Report.pdf"), 
-                          execute_params = list("school" = school))
+  quarto::quarto_render(
+    "reports/csi_graduation_one_page.qmd",
+    output_file = paste(school, "CSI Report.pdf"),
+    execute_params = list("school" = school)
+  )
 }
 for (school in low_perform) {
-    quarto::quarto_render("csi_low_perform_one_page.qmd",
-                          output_file = paste(school, "CSI Report.pdf"), 
-                          execute_params = list("school" = school))
+  quarto::quarto_render(
+    "reports/csi_low_perform_one_page.qmd",
+    output_file = paste(school, "CSI Report.pdf"),
+    execute_params = list("school" = school)
+  )
 }
-

@@ -10,13 +10,13 @@ format:
     margin-right: 1.2in
 editor: visual
 params:
-  year: 2024
-  school: "Cleo Gordon Elementary"
+  year: 2025
+  school: "Solano County Community"
 ---
 
-```{r setup, include = FALSE}
+```{r setup}
+#| include = FALSE
 
-library(shiny)
 library(tidyverse)
 library(DT)
 library(wesanderson)
@@ -24,114 +24,147 @@ library(fontawesome)
 library(ggtext)
 library(showtext)
 library(flextable)
+library(here)
 
-essa <- read_csv("data/dashboard_essa.csv") %>% 
-  filter(countyname == "Solano",
-         rtype == "S") %>% 
-  mutate(studentGroup = as_factor(studentgroup),
-         color = as_factor(color),
-         studentGroupLong = fct_relevel(as_factor(student_group_long),
-                                    "All students",
-                                    "American Indian or Alaska Native",
-                                    "Asian",
-                                    "Black/African American",
-                                    "Filipino",
-                                    "Hispanic",
-                                    "Pacific Islander",
-                                    "White",
-                                    "Multiple Races/Two or more",
-                                    "Socioeconomically Disadvantaged",
-                                    "Homeless Youth",
-                                    "Students with Disabilities",
-                                    "Foster Youth",
-                                    "English Learner",
-                                    "English Learners Only",
-                                    "Long-Term English Learner",
-                                    "RFEPs Only",
-                                    "English Only",
-                                    "Smarter Balanced Assessment",
-                                    "CA Alternative Assessment"
-                                    ),
-                  indicator = case_match(indicator,
-                                "ELA" ~ "ELA (DFS)",
-                                "Math" ~ "Math (DFS)",
-                                "college/career" ~ "college/career\n(status only)",
-                                .default = indicator),
-                  indicator = fct_relevel(as_factor(indicator), 
-                                 "ELA (DFS)", "Math (DFS)", "ELPI", 
-                                 "absenteeism", "graduation", 
-                                 "suspension")) 
+if (interactive()) {
+  params <- rmarkdown::yaml_front_matter(
+    rstudioapi::getSourceEditorContext()$path
+  )$params
+}
+
+essa <- read_csv(here("data/dashboard_essa.csv")) |>
+  janitor::clean_names() |>
+  filter(countyname == "Solano", rtype == "S") |>
+  mutate(
+    color = as_factor(color),
+    student_group_long = fct_relevel(
+      as_factor(student_group_long),
+      "All students",
+      "American Indian or Alaska Native",
+      "Asian",
+      "Black/African American",
+      "Filipino",
+      "Hispanic",
+      "Pacific Islander",
+      "White",
+      "Multiple Races/Two or more",
+      "Socioeconomically Disadvantaged",
+      "Homeless Youth",
+      "Students with Disabilities",
+      "Foster Youth",
+      "English Learner",
+      "English Learners Only",
+      "Long-Term English Learner",
+      "RFEPs Only",
+      "English Only",
+      "Smarter Balanced Assessment",
+      "CA Alternative Assessment"
+    ),
+    indicator = fct_relevel(
+      as_factor(indicator),
+      "ELA",
+      "Math",
+      "ELPI",
+      "absenteeism",
+      "graduation",
+      "suspension"
+    )
+  )
 
 status_colors <- c(
-  "lightgrey", "tomato", "orange",
-  "yellow", "mediumseagreen", "dodgerblue", "darkgrey"
+  "lightgrey",
+  "tomato",
+  "orange",
+  "yellow",
+  "mediumseagreen",
+  "dodgerblue",
+  "darkgrey"
 )
 
-font_add('fa-solid', 'fonts/fa-solid-900.ttf')
+font_add('fa-solid', here('fonts/fa-solid-900.ttf'))
 
 # element_markdown uses <br> for newlines
-html_wrap <- function(s, width = 17){
-    str_wrap(s, width = width) %>% 
-      str_replace_all("\n", "<br>")
-  }
+html_wrap <- function(s, width = 17) {
+  str_wrap(s, width = width) |>
+    str_replace_all("\n", "<br>")
+}
 
-essa_filtered <- 
-  essa %>% 
-  filter(schoolname == params$school,
-         student_group_long %in% c(
-                                    "All students",
-                                    "American Indian or Alaska Native",
-                                    "Asian",
-                                    "Black/African American",
-                                    "Filipino",
-                                    "Hispanic",
-                                    "Pacific Islander",
-                                    "White",
-                                    "Multiple Races/Two or more",
-                                    "Socioeconomically Disadvantaged",
-                                    "Homeless Youth",
-                                    "Students with Disabilities",
-                                    "Foster Youth",
-                                    "English Learner",
-                                    "Long-Term English Learner")) %>% 
-  mutate(student_group_wrapped = html_wrap(student_group_long, width = 17),
-         change = if_else(is.na(change), "", paste(change)),
-         change_arrow = if_else(indicator %in% c("ELA (DFS)", "Math (DFS)", "ELPI", 
-                           "graduation", "college/career\n(status only)"),
-                                case_match(changelevel,
-                                   0 ~ "<span style='font-family:fa-solid;'>&#xf068;</span>",
-                                   1 ~ "<span style='font-family:fa-solid;'>&#xf063;</span>",
-                                   2 ~ "<span style='font-family:fa-solid;'>&#xf078;</span>",
-                                   3 ~ "<span style='font-family:fa-solid;'>&#xf7a4;</span>",
-                                   4 ~ "<span style='font-family:fa-solid;'>&#xf077;</span>",
-                                   5 ~ "<span style='font-family:fa-solid;'>&#xf062;</span>",
-                                   .default = "<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>"),
-                                                                case_match(changelevel,
-                                   0 ~ "<span style='font-family:fa-solid;'>&#xf068;</span>",
-                                   5 ~ "<span style='font-family:fa-solid;'>&#xf063;</span>",
-                                   4 ~ "<span style='font-family:fa-solid;'>&#xf078;</span>",
-                                   3 ~ "<span style='font-family:fa-solid;'>&#xf7a4;</span>",
-                                   2 ~ "<span style='font-family:fa-solid;'>&#xf077;</span>",
-                                   1 ~ "<span style='font-family:fa-solid;'>&#xf062;</span>",
-                                   .default = "<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>"))) %>% 
+essa_filtered <-
+  essa |>
+  filter(
+    schoolname == params$school,
+    reportingyear == params$year,
+    student_group_long %in%
+      c(
+        "All students",
+        "American Indian or Alaska Native",
+        "Asian",
+        "Black/African American",
+        "Filipino",
+        "Hispanic",
+        "Pacific Islander",
+        "White",
+        "Multiple Races/Two or more",
+        "Socioeconomically Disadvantaged",
+        "Homeless Youth",
+        "Students with Disabilities",
+        "Foster Youth",
+        "English Learner",
+        "Long-Term English Learner"
+      )
+  ) |>
+  mutate(
+    student_group_wrapped = html_wrap(student_group_long, width = 17),
+    change = if_else(is.na(change), "", paste(change)),
+    change_arrow = if_else(
+      indicator %in%
+        c(
+          "ELA",
+          "Math",
+          "ELPI",
+          "graduation",
+          "college/career"
+        ),
+      case_match(
+        changelevel,
+        0 ~ "<span style='font-family:fa-solid;'>&#xf068;</span>",
+        1 ~ "<span style='font-family:fa-solid;'>&#xf063;</span>",
+        2 ~ "<span style='font-family:fa-solid;'>&#xf078;</span>",
+        3 ~ "<span style='font-family:fa-solid;'>&#xf7a4;</span>",
+        4 ~ "<span style='font-family:fa-solid;'>&#xf077;</span>",
+        5 ~ "<span style='font-family:fa-solid;'>&#xf062;</span>",
+        .default = "<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>"
+      ),
+      case_match(
+        changelevel,
+        0 ~ "<span style='font-family:fa-solid;'>&#xf068;</span>",
+        5 ~ "<span style='font-family:fa-solid;'>&#xf063;</span>",
+        4 ~ "<span style='font-family:fa-solid;'>&#xf078;</span>",
+        3 ~ "<span style='font-family:fa-solid;'>&#xf7a4;</span>",
+        2 ~ "<span style='font-family:fa-solid;'>&#xf077;</span>",
+        1 ~ "<span style='font-family:fa-solid;'>&#xf062;</span>",
+        .default = "<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>"
+      )
+    )
+  ) |>
   arrange(student_group_long)
 
 group_count <-
-  essa_filtered %>% 
-  select(student_group_long) %>% 
-  unique() %>% 
+  essa_filtered |>
+  select(student_group_long) |>
+  unique() |>
   nrow()
 
-group_order <- 
-  essa_filtered %>% 
-  select(student_group_long) %>% 
-  unique() %>%  
-  arrange(student_group_long) %>% 
+group_order <-
+  essa_filtered |>
+  select(student_group_long) |>
+  unique() |>
+  arrange(student_group_long) |>
   mutate(order = c(1:group_count))
 
 ```
 
-![](www/SCOE_Logo.jpg){fig-align="right" width="127"}
+![](images/SCOE_Logo.jpg){fig-align="right" width="127"}
 
 # `r params$school` Comprehensive Support and Improvement Report `r paste0(params$year, "-", params$year + 1)`
 
@@ -145,17 +178,22 @@ In accordance with Every Student Succeeds Act [(ESSA)](https://www.cde.ca.gov/re
 
 The complete details for determining eligibility can be found in the technical guide for CSI released by the CA Department of Education (CDE). [Download the technical guide here.](https://www.cde.ca.gov/sp/sw/t1/csi.asp)
 
-```{r get_years, include = FALSE}
+```{r get_years}
+#| include = FALSE
 
-csi_year_th <- 
-  essa_filtered %>% 
-  filter(studentgroup != "ALL") %>% 
-  mutate(yearth = case_match(csi_years,
-                             1 ~ "1st",
-                             2 ~ "2nd",
-                             3 ~ "3rd",
-                             .default = paste0(csi_years, "th"))) %>% 
-  pull(yearth) %>%
+csi_year_th <-
+  essa_filtered |>
+  filter(student_group_long != "All students") |>
+  mutate(
+    yearth = case_match(
+      csi_years,
+      1 ~ "1st",
+      2 ~ "2nd",
+      3 ~ "3rd",
+      .default = paste0(csi_years, "th")
+    )
+  ) |>
+  pull(yearth) |>
   nth(1)
 
 ```
@@ -169,51 +207,69 @@ For the `r paste0(params$year, "-", params$year + 1)` school year, `r params$sch
 Results from the `r params$year - 1` and `r params$year` Dashboards are used in CSI eligibility determinations. Table 1 provides the details for the `r params$year` Dashboard for `r params$school`.
 
 ```{r csi-table}
-#| label: csi-eligible
 #| echo: FALSE
 #| tbl-cap: "Student performance details"
 #| cap-location: bottom
 
-essa_filtered %>%
-  filter(student_group_long == "All students") %>% 
+essa_filtered |>
+  filter(student_group_long == "All students") |>
   mutate(
     currstatus = case_when(
-                        indicator == "ELA (DFS)" ~ paste0(currstatus),
-                        indicator == "Math (DFS)" ~ paste0(currstatus),
-                        .default = paste0(currstatus, "%")),
-     n_count = case_when(indicator == "ELA (DFS)" | 
-                       indicator == "Math (DFS)" | 
-                       indicator == "college/career\n(status only)" ~ currdenom,
-                       .default = currnumer),
-    currnumer_str = case_when(indicator == "ELA (DFS)" | 
-                       indicator == "Math (DFS)" | 
-                       indicator == "college/career\n(status only)" ~ "*",
-                       .default = as.character(currnumer)),
-    color = case_match(color,
-                       "0" ~ "Color not assigned",
-                       "1" ~ "Red",
-                       "2" ~ "Orange",
-                       "3" ~ "Yellow",
-                       "4" ~ "Green",
-                       "5" ~ "Blue",
-                       .default = "Status only")) %>%
-  select(student_group_long, indicator, color, currnumer_str, currdenom, currstatus, change) %>%
-  arrange(student_group_long) %>% 
-  flextable() %>% 
-  line_spacing(space = 0.2,
-               part = "body") %>% 
+      indicator == "ELA" ~ paste0(currstatus),
+      indicator == "Math" ~ paste0(currstatus),
+      .default = paste0(currstatus, "%")
+    ),
+    n_count = case_when(
+      indicator == "ELA" |
+        indicator == "Math" |
+        indicator == "college/career" ~ currdenom,
+      .default = currnumer
+    ),
+    currnumer_str = case_when(
+      indicator == "ELA" |
+        indicator == "Math" |
+        indicator == "college/career" ~ "*",
+      .default = as.character(currnumer)
+    ),
+    color_word = case_match(
+      color,
+      "0" ~ "Color not assigned",
+      "1" ~ "Red",
+      "2" ~ "Orange",
+      "3" ~ "Yellow",
+      "4" ~ "Green",
+      "5" ~ "Blue",
+      .default = "Status only"
+    )
+  ) |>
+  select(
+    student_group_long,
+    indicator,
+    color_word,
+    currnumer_str,
+    currdenom,
+    currstatus,
+    change
+  ) |>
+  arrange(student_group_long) |>
+  flextable() |>
+  line_spacing(space = 0.2, part = "body") |>
   set_header_labels(
     student_group_long = "Student Group",
-    indicator = "Indicator", 
-    color = "Color",
+    indicator = "Indicator",
+    color_word = "Color",
     # n_count = "N count",
     currnumer_str = "Numerator",
     currdenom = "Denominator",
     currstatus = "Current Status",
-    change = "Change") %>%
-  width(width = c(1.2, 1, 0.6, 0.8, 1, 0.8, 0.6)) %>%
-  align(align = c("left", "left", "left", "right", "right", "right", "right"), part = "all")
-  # set_table_properties(layout = "autofit")
+    change = "Change"
+  ) |>
+  width(width = c(1.2, 1, 0.6, 0.8, 1, 0.8, 0.6)) |>
+  align(
+    align = c("left", "left", "left", "right", "right", "right", "right"),
+    part = "all"
+  )
+# set_table_properties(layout = "autofit")
 
 ```
 
@@ -223,40 +279,54 @@ essa_filtered %>%
 
 The California School Dashboard (Dashboard) reflects California's accountability system with the reporting of Status (current year data), Change (the difference from prior year data), and Performance Levels (colors) for all state indicators except the Science indicator. Details below represent icon definitions included in the dashboard overview.
 
-![](dashboard-cell-key-CDE-change%20CSI.png){fig-align="left"}
+![](images/dashboard-cell-key-CDE-change.png){fig-align="left"}
 
 ## `r params$school` Dashboard Overview `r params$year`
 
 ```{r dashboard-plot, echo = FALSE, warning=FALSE, fig.height = 4.8, fig.width = 8.2}
-
 showtext_auto()
 
-
-essa_filtered %>%
-  left_join(group_order, by = join_by(student_group_long)) %>% 
-  mutate(student_group_wrapped = fct_reorder(student_group_wrapped, 
-                                              order)) %>% 
+essa_filtered |>
+  left_join(group_order, by = join_by(student_group_long)) |>
+  mutate(
+    student_group_wrapped = fct_reorder(student_group_wrapped, order)
+  ) |>
   ggplot() +
-  geom_richtext(x = 0.5, y = 0.5,
-            mapping = aes(label = if_else(indicator == "ELA (DFS)" |
-                                          indicator == "Math (DFS)" |
-                                          is.na(currstatus), 
-                                          paste(currstatus, change_arrow, change),
-                                          paste0(currstatus, "% ", change_arrow, " ", change)),
-                          fill = color),
-            show.legend = FALSE,
-            text.color = "black",
-            label.size = 0.8,
-            size = 3.3) +
-  scale_fill_manual(values = status_colors,
-                    drop = FALSE,
-                    na.value = "white") +
-  facet_grid(student_group_wrapped ~ indicator, scales = "free", space = "free") +
+  geom_richtext(
+    x = 0.5,
+    y = 0.5,
+    mapping = aes(
+      label = if_else(
+        indicator == "ELA" |
+          indicator == "Math" |
+          indicator == "Science" |
+          is.na(currstatus),
+        paste(currstatus, change_arrow, change),
+        paste0(currstatus, "% ", change_arrow, " ", change)
+      ),
+      fill = color
+    ),
+    show.legend = FALSE,
+    text.color = "black",
+    label.size = 0.8,
+    size = 3.3
+  ) +
+  scale_fill_manual(values = status_colors, drop = FALSE, na.value = "white") +
+  facet_grid(
+    student_group_wrapped ~ indicator,
+    scales = "free",
+    space = "free"
+  ) +
   theme_minimal() +
   theme(
     text = element_text(size = 12),
     strip.text.x = element_text(size = 11),
-    strip.text.y = element_markdown(size = 11, angle = 0, vjust = 0.7, hjust = 0),
+    strip.text.y = element_markdown(
+      size = 11,
+      angle = 0,
+      vjust = 0.7,
+      hjust = 0
+    ),
     strip.clip = "off",
     plot.caption = element_text(size = 12),
     panel.spacing = unit(0, "pt")
