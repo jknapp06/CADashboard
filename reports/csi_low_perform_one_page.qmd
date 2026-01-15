@@ -178,6 +178,8 @@ In accordance with Every Student Succeeds Act [(ESSA)](https://www.cde.ca.gov/re
 
 The complete details for determining eligibility can be found in the technical guide for CSI released by the CA Department of Education (CDE). [Download the technical guide here.](https://www.cde.ca.gov/sp/sw/t1/csi.asp)
 
+ESSA support determinations under CSI were made for California following the publication of the 2023 Dashboard. These determinations marked the first year of California’s three-year identification cycle. Schools eligible for CSI (Low Graduation Rate/Low Performing) in 2023–24 have been evaluated annually to determine continued eligibility for CSI and entry determinations for Targeted Support and Improvement (TSI). The 2025 Dashboard results represent the third year of California's three year cycle.
+
 ```{r get_years}
 #| include = FALSE
 

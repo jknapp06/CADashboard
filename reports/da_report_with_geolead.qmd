@@ -8,14 +8,14 @@ format:
     margin-bottom: 0.75in
     geometry:
     - top=0.5in
-    - left=.75in
-    - textwidth=5in
+    - left=0.75in
+    - textwidth=6.5in
     - marginparsep=.25in
-    - marginparwidth=1.75in
+    - marginparwidth=0.75in
     - bottom=.75in
     fig-dpi: 300
     fig-width: 8
-    fig-height: 5
+    fig-height: 5.25
 editor: visual
 params:
     lea: "Vacaville Unified"
@@ -79,7 +79,7 @@ dashboard <- read_csv(here("data/solano_dashboard.csv")) |>
       "ELA" ~ "ELA (DFS)",
       "Math" ~ "Math (DFS)",
       "science" ~ "Science",
-      "college/career" ~ "College/\nCareer",
+      "college/career" ~ "College/ Career",
       .default = indicator
     ),
     indicator = fct_relevel(
@@ -90,7 +90,7 @@ dashboard <- read_csv(here("data/solano_dashboard.csv")) |>
       "absenteeism",
       "graduation",
       "suspension",
-      "College/\nCareer",
+      "College/ Career",
       "Science"
     ),
     lea = if_else(charter_flag == "Y", schoolname, districtname)
@@ -133,9 +133,9 @@ indicator_colors = c(
   "ELA (DFS)" = "#CC6677",
   "Math (DFS)" = "#882255",
   "ELPI" = "#AA4499",
-  "College/\nCareer" = "#332288",
-  "graduation" = "#88CCEE",
-  "absenteeism" = "#44AA99",
+  "College/ Career" = "#332288",
+  "graduation" = "#5ab6e4ff",
+  "absenteeism" = "#7944aaff",
   "suspension" = "#117733",
   "Science" = "#DDCC77"
 )
@@ -184,7 +184,7 @@ font_add('fa-solid', here('fonts/fa-solid-900.ttf'))
 The 2025 California School Dashboard (Dashboard) results reflect the current status and change of indicators across student groups.
 
 ::: column-page-inset-right
-![](images/dashboard-cell-key-CDE-change.png){fig-align="right"}
+![](images/dashboard-cell-key-CDE-change.png){fig-align="left" width="600"}
 :::
 
 ## `r paste0(params$lea, if_else(is_charter == "N"," School District", ""))` `r params$year` Dashboard Overview and DA Eligibility
@@ -236,7 +236,7 @@ dashboard_filtered <-
           "Math (DFS)",
           "ELPI",
           "graduation",
-          "College/\nCareer",
+          "College/ Career",
           "Science"
         ),
       case_match(
@@ -384,7 +384,7 @@ dashboard_filtered |>
       indicator == "ELA (DFS)" |
         indicator == "Math (DFS)" |
         indicator == "Science" ~ "*",
-      indicator == "College/\nCareer" ~ as.character(curr_prep),
+      indicator == "College/ Career" ~ as.character(curr_prep),
       .default = as.character(currnumer)
     )
   ) |>
@@ -418,7 +418,7 @@ dashboard_filtered |>
 
 ```
 
-`r ifelse(sum(c("ELA (DFS)", "Math (DFS)", "Science") %in% eligible_indicators) > 0, "\\* No numerator for this indicator.","")`<br> <!-- `r ifelse("College/\nCareer" %in% eligible_indicators, "† No numerator provided for this indicator.","")` -->
+`r ifelse(sum(c("ELA (DFS)", "Math (DFS)", "Science") %in% eligible_indicators) > 0, "\\* No numerator for this indicator.","")`<br> <!-- `r ifelse("College/ Career" %in% eligible_indicators, "† No numerator provided for this indicator.","")` -->
 
 ```{r create_variables}
 #| include: false
@@ -480,6 +480,7 @@ long_da_groups |>
 #| fig-column: screen
 
 wrap_length <- 20
+first = TRUE
 
 for (group in student_groups_list) {
   academic <-
@@ -519,8 +520,24 @@ for (group in student_groups_list) {
       caption = "Colors not reflective of assigned Dashboard colors."
     ) +
     theme_minimal() +
-    theme(plot.title = element_markdown(hjust = 0.5, linewidth = wrap_length))
+    theme(
+      plot.title = element_markdown(
+        hjust = 0.5,
+        linewidth = wrap_length,
+        size = 16
+      )
+    ) +
+    theme(axis.title = element_text(size = 14)) +
+    theme(legend.text = element_text(size = 12)) +
+    theme(legend.title = element_text(size = 14)) +
+    theme(axis.text = element_text(size = 12))
 
+  if (first) {
+    # Don't add page break before first student group
+    first = FALSE
+  } else {
+    cat("\\newpage\n\n")
+  }
   print(academic_graph)
   cat("\n\n\n")
 
@@ -562,7 +579,17 @@ for (group in student_groups_list) {
         caption = "Colors not reflective of assigned Dashboard colors."
       ) +
       theme_minimal() +
-      theme(plot.title = element_markdown(hjust = 0.5, linewidth = wrap_length))
+      theme(
+        plot.title = element_markdown(
+          hjust = 0.5,
+          linewidth = wrap_length,
+          size = 16
+        )
+      ) +
+      theme(axis.title = element_text(size = 14)) +
+      theme(legend.text = element_text(size = 12)) +
+      theme(legend.title = element_text(size = 14)) +
+      theme(axis.text = element_text(size = 12))
 
     print(elpi_graph)
     cat("\n\n\n")
@@ -573,7 +600,7 @@ for (group in student_groups_list) {
     filter(student_group_long == group) |>
     filter(
       indicator %in%
-        c("absenteeism", "graduation", "suspension", "college/career")
+        c("absenteeism", "graduation", "suspension", "College/ Career")
     )
 
   min_year <- min(nonacademic$reportingyear)
@@ -609,7 +636,17 @@ for (group in student_groups_list) {
       caption = "CCI only reported for 2019, 2023, 2024, and 2025, where applicable."
     ) +
     theme_minimal() +
-    theme(plot.title = element_markdown(hjust = 0.5, linewidth = wrap_length))
+    theme(
+      plot.title = element_markdown(
+        hjust = 0.5,
+        linewidth = wrap_length,
+        size = 16
+      )
+    ) +
+    theme(axis.title = element_text(size = 14)) +
+    theme(legend.text = element_text(size = 12)) +
+    theme(legend.title = element_text(size = 14)) +
+    theme(axis.text = element_text(size = 12))
 
   print(nonacademic_graph)
   cat("\\newpage\n\n")

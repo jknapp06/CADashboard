@@ -8,12 +8,14 @@ format:
     margin-bottom: 0.75in
     geometry:
     - top=0.5in
-    - left=.75in
-    - textwidth=5in
+    - left=0.75in
+    - textwidth=6.5in
     - marginparsep=.25in
-    - marginparwidth=1.75in
+    - marginparwidth=0.75in
     - bottom=.75in
     fig-dpi: 300
+    fig-width: 8
+    fig-height: 5.25
 editor: visual
 params:
   lea: "Vacaville Unified"
@@ -47,7 +49,7 @@ dashboard <- read_csv(here("data/solano_dashboard.csv")) |>
       "ELA" ~ "ELA (DFS)",
       "Math" ~ "Math (DFS)",
       "science" ~ "Science",
-      "college/career" ~ "College/\nCareer",
+      "college/career" ~ "College/ Career",
       .default = indicator
     ),
     indicator = fct_relevel(
@@ -58,7 +60,7 @@ dashboard <- read_csv(here("data/solano_dashboard.csv")) |>
       "absenteeism",
       "graduation",
       "suspension",
-      "College/\nCareer",
+      "College/ Career",
       "Science"
     ),
     studentgroup = as_factor(studentgroup),
@@ -126,7 +128,7 @@ font_add('fa-solid', '../fonts/fa-solid-900.ttf')
 The 2025 California School Dashboard (Dashboard) results reflect the current status and change of indicators across student groups.
 
 ::: column-page-inset-right
-![](images/dashboard-cell-key-CDE-change.png){fig-align="right"}
+![](images/dashboard-cell-key-CDE-change.png){fig-align="left" width="600"}
 :::
 
 ## `r paste0(params$lea, if_else(is_charter == "N"," School District", ""))` `r params$year` Dashboard Overview and DA Eligibility
@@ -180,7 +182,7 @@ dashboard_filtered <-
           "Math (DFS)",
           "ELPI",
           "graduation",
-          "College/\nCareer",
+          "College/ Career",
           "Science"
         ),
       case_match(
@@ -349,7 +351,7 @@ dashboard |>
       indicator == "ELA (DFS)" |
         indicator == "Math (DFS)" |
         indicator == "Science" ~ "*",
-      indicator == "College/\nCareer" ~ as.character(curr_prep),
+      indicator == "College/ Career" ~ as.character(curr_prep),
       .default = as.character(currnumer)
     )
   ) |>
@@ -383,6 +385,6 @@ dashboard |>
 
 ```
 
-`r ifelse(sum(c("ELA (DFS)", "Math (DFS)", "Science") %in% eligible_indicators) > 0, "\\* No numerator for this indicator.","")`<br> <!-- `r ifelse("College/\nCareer" %in% eligible_indicators, "† No numerator provided for this indicator.","")` -->
+`r ifelse(sum(c("ELA (DFS)", "Math (DFS)", "Science") %in% eligible_indicators) > 0, "\\* No numerator for this indicator.","")`<br> <!-- `r ifelse("College/ Career" %in% eligible_indicators, "† No numerator provided for this indicator.","")` -->
 
 Report prepared by Solano County Office of Education Assessment Research and Evaluation team. Email Dr. Tacey Rodgers trodgers\@solanocoe.net and Joseph Knapp jknapp\@solanocoe.net with any questions.

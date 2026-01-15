@@ -1,4 +1,4 @@
-# Generate 52072 reports
+# Generate geolead reports
 
 library(tidyverse)
 library(here)
@@ -14,7 +14,7 @@ districts <-
 for (district in districts) {
   quarto::quarto_render(
     here("reports/da_report_with_geolead.qmd"),
-    output_file = paste(district, "DA Report 2025.docx"),
+    output_file = paste(district, "DA Report 2025"),
     execute_params = list("lea" = district)
   )
 }

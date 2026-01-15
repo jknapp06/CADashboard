@@ -5,6 +5,6 @@ account: solanocoe
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 10584416
-bundleId: 11233392
+bundleId: 11407896
 url: https://solanocoe.shinyapps.io/CADashboard/
 version: 1

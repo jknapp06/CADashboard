@@ -75,7 +75,7 @@ RE:  2025-26 & 2026-27 Eligibility for Assistance under California’s System o
 
 Dear `r params$superintendent` and Governing Board Members,
 
-On November 13th, the California Department of Education released the results of the 2025 California School Dashboard. In accordance with California’s System of Support (Education Code 47607.3), charter schools qualify for Differentiated Assistance (also referred to as technical assistance) based on the performance of student groups on the Dashboard. 
+On November 13th, the California Department of Education released the results of the 2025 California School Dashboard. In accordance with California’s System of Support (Education Code 47607.3), charter schools qualify for Differentiated Assistance (also referred to as technical assistance) based on the performance of student groups on the Dashboard.
 
 ## Differentiated Assistance
 

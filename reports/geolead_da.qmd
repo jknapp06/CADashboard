@@ -67,8 +67,8 @@ indicator_colors = c(
   "Math" = "#882255",
   "ELPI" = "#AA4499",
   "college/career" = "#332288",
-  "graduation" = "#88CCEE",
-  "absenteeism" = "#44AA99",
+  "graduation" = "#5ab6e4ff",
+  "absenteeism" = "#7944aaff",
   "suspension" = "#117733",
   "science" = "#DDCC77"
 )

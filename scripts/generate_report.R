@@ -25,7 +25,7 @@ da_eligible_charters <-
 
 leas_to_report <- c(districts, da_eligible_charters)
 
-for (lea in leas_to_report) {
+for (lea in da_eligible_charters) {
   lea_output <- str_replace_all(lea, ":", "")
 
   quarto::quarto_render(
