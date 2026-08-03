@@ -16,7 +16,7 @@ format:
     fig-dpi: 300
     fig-width: 8
     fig-height: 5.25
-editor: visual
+editor: source
 params:
     lea: "Vacaville Unified"
     year: "2025"
@@ -134,7 +134,7 @@ indicator_colors = c(
   "Math (DFS)" = "#882255",
   "ELPI" = "#AA4499",
   "College/ Career" = "#332288",
-  "graduation" = "#5ab6e4ff",
+  "graduation" = "#53bff5ff",
   "absenteeism" = "#7944aaff",
   "suspension" = "#117733",
   "Science" = "#DDCC77"

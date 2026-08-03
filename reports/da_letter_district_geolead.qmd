@@ -4,7 +4,7 @@ format:
     fig-dpi: 300
     fig-width: 7.5
     reference-doc: da-letter-template.docx
-editor: visual
+editor: source
 params:
   lea: Vallejo City Unified
   initials: VCUSD

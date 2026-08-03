@@ -1,0 +1,200 @@
+---
+format: docx
+editor: source
+params:
+    lea: "Vacaville Unified"
+    year: "2025"
+---
+
+```{r setup}
+#| include: false
+
+library(tidyverse)
+library(here)
+
+if (interactive()) {
+  params <- rmarkdown::yaml_front_matter(
+    rstudioapi::getSourceEditorContext()$path
+  )$params
+}
+
+dashboard <- read_csv(here("data/solano_dashboard.csv")) |>
+  filter(
+    rtype == "D" &
+      districtname == params$lea |
+      charter_flag == "Y" & rtype == "S" & schoolname == params$lea
+  ) |>
+  mutate(
+    statuslevel = as_factor(statuslevel),
+    # reportingyear = fct_relevel(as_factor(reportingyear), "2019"),
+    studentgroup = as_factor(studentgroup),
+    student_group_long = fct_relevel(
+      as_factor(student_group_long),
+      "All students",
+      "American Indian or Alaska Native",
+      "Asian",
+      "Black/African American",
+      "Filipino",
+      "Hispanic",
+      "Pacific Islander",
+      "White",
+      "Multiple Races/Two or more",
+      "Socioeconomically Disadvantaged",
+      "Homeless Youth",
+      "Students with Disabilities",
+      "Foster Youth",
+      "English Learner",
+      "Long-Term English Learner",
+      "English Learners Only",
+      "RFEPs Only",
+      "English Only",
+      "Smarter Balanced Assessment",
+      "CA Alternative Assessment"
+    ),
+    charter_flag = if_else(is.na(charter_flag), "N", charter_flag),
+    indicator = case_match(
+      indicator,
+      "ELA" ~ "ELA",
+      "Math" ~ "Math",
+      "science" ~ "Science",
+      "college/career" ~ "College/ Career",
+      .default = indicator
+    ),
+    indicator = fct_relevel(
+      as_factor(indicator),
+      "ELA",
+      "Math",
+      "ELPI",
+      "absenteeism",
+      "graduation",
+      "suspension",
+      "College/ Career",
+      "Science"
+    ),
+    lea = if_else(charter_flag == "Y", schoolname, districtname),
+    color = recode_values(color, 
+    0 ~ "No Status",
+    1 ~ "Red",
+    2 ~ "Orange",
+    3 ~ "Yellow",
+    4 ~ "Green",
+    5 ~ "Blue") 
+  ) |>
+  select(
+    reportingyear,
+    districtname,
+    schoolname,
+    student_group_long,
+    priority,
+    indicator,
+    currnumer,
+    currdenom,
+    currstatus,
+    color,
+    change,
+    changelevel,
+    priority_eligible,
+    indicator_eligible,
+    charter_flag,
+    curr_prep
+  )
+
+is_charter <-
+  dashboard |>
+  filter(districtname == params$lea | schoolname == params$lea) |>
+  pull(charter_flag) |>
+  nth(1)
+
+status_colors <- c(
+  "lightgrey",
+  "tomato",
+  "orange",
+  "yellow",
+  "mediumseagreen",
+  "dodgerblue",
+  "darkgrey"
+)
+
+```
+
+
+```{r generate_sentence}
+#| include: false
+
+library(glue)
+library(stringr)
+
+# Function to generate the string for a specific year
+get_da_eligibility_text <- function(df, target_year) {
+  year_data <- df |>
+    filter(reportingyear == target_year, indicator_eligible == TRUE) |>
+    # Handle NA colors gracefully
+    mutate(
+      color_suffix = if_else(is.na(color), "", paste0("-", color)),
+      indicator_label = paste0(indicator, color_suffix)
+    )
+  
+  if (nrow(year_data) == 0) {
+    return(NULL)
+  }
+  
+  # Summarize by student group and priority
+  group_summary <- year_data |>
+    group_by(student_group_long, priority) |>
+    summarize(
+      indicators_combined = str_flatten(indicator_label, collapse = ", ", last = " and "),
+      .groups = "drop"
+    ) |>
+    mutate(
+      priority_clause = glue("{indicators_combined} (Priority #{priority})")
+    ) |>
+    group_by(student_group_long) |>
+    summarize(
+      all_priorities = str_flatten(priority_clause, collapse = ", ", last = " and "),
+      .groups = "drop"
+    ) |>
+    mutate(
+      final_clause = glue("{student_group_long} student group(s) in {all_priorities}")
+    )
+  
+  str_flatten(group_summary$final_clause, collapse = "; and ")
+}
+
+# Assign values to variables
+text_2024 <- get_da_eligibility_text(dashboard, "2024")
+text_2025 <- get_da_eligibility_text(dashboard, "2025")
+
+is_eligible_2024 <- !is.null(text_2024)
+is_eligible_2025 <- !is.null(text_2025)
+
+# Programmatically generate the exact template sentences
+template_1 <- glue(
+  "{params$lea} is eligible for Differentiated Assistance based on the 2024 CA Dashboard for {text_2024}. ",
+  "On the 2025 CA Dashboard, it is eligible for {text_2025}."
+)
+
+template_2 <- glue(
+  "Although {params$lea} is not eligible for Year 1 Differentiated Assistance based on the 2025 CA Dashboard, ",
+  "the district is eligible for Year 2 DA support based the 2024 CA Dashboard. ",
+  "Based on the 2024 CA Dashboard, it is eligible for {text_2024}."
+)
+
+# Decide which template to print based on eligibility logic
+final_narrative <- if (is_eligible_2024 && is_eligible_2025) {
+  template_1
+} else if (is_eligible_2024 && !is_eligible_2025) {
+  template_2
+} else {
+  glue("{params$lea} is not eligible for Differentiated Assistance based on the 2024 or 2025 CA Dashboards.")
+}
+```
+
+## `r params$lea`
+
+```{r print_sentence}
+#| results: asis
+#| echo: false
+
+cat(final_narrative)
+
+```

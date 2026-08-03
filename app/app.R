@@ -24,13 +24,6 @@ teachers <- vroom("app_data/teacher_assignments.csv")
 #   ) |>
 #   mutate(cds = as.character(cds))
 
-# vusd_cds <-
-#   dashboard |>
-#   filter(districtname == "Vacaville Unified") |>
-#   pull(cds) |>
-#   nth(1) |>
-#   as.character()
-
 # districts_geo <- read_sf("data/solano_districts.geojson")
 # schools_geo <- read_sf("data/solano_schools.geojson")
 
@@ -156,7 +149,6 @@ solano_csi <-
     charter_flag,
     student_group_long,
     starts_with("assistance_status"),
-    essa_status,
     atsi_support
   ) |>
   filter(reportingyear == "2025", countyname == "Solano") |>

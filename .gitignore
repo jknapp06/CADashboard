@@ -5,9 +5,11 @@
 *.duckdb
 *.csv
 *.tex
+*.parquet
 /data_output/
 .Rproj.user
 /cache/
+/data/
 /data/cache/
 /data/full_dashboard.csv
 /data/ca_dashboard.csv

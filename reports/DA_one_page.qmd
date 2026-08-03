@@ -16,9 +16,9 @@ format:
     fig-dpi: 300
     fig-width: 8
     fig-height: 5.25
-editor: visual
+editor: source
 params:
-  lea: "Vacaville Unified"
+  lea: "ELITE Public"
   year: "2025"
 ---
 
@@ -115,7 +115,9 @@ status_colors <- c(
 #   unique()
 #
 # lea_selection = 1
-font_add('fa-solid', '../fonts/fa-solid-900.ttf')
+font_add('fa-solid', here('fonts/fa-solid-900.ttf'))
+
+selected_lea <- if_else(params$lea == "ELITE Public", "Elite Public", params$lea)
 
 ```
 
@@ -150,7 +152,7 @@ html_wrap <- function(s, width = 17) {
 dashboard_filtered <-
   dashboard |>
   filter(
-    lea == params$lea,
+    lea == selected_lea,
     reportingyear == params$year,
     charter_flag == "Y" | rtype == "D",
     student_group_long %in%
@@ -314,7 +316,7 @@ eligible_indicators <-
 
 dashboard |>
   filter(
-    lea == params$lea,
+    lea == selected_lea,
     reportingyear == params$year,
     charter_flag == "Y" | rtype == "D",
     student_group_long %in%

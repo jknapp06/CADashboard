@@ -1,7 +1,7 @@
 ---
 title: "da_history"
 format: html
-editor: visual
+editor: source
 ---
 
 ```{r setup}
@@ -9,6 +9,7 @@ editor: visual
 
 library(tidyverse)
 library(janitor)
+library(openxlsx)
 
 dashboard_info <- read_csv("data/solano_dashboard.csv") %>%
   clean_names() %>%
@@ -26,8 +27,18 @@ dashboard_info <- read_csv("data/solano_dashboard.csv") %>%
 
 assistance <- read_csv("data/assistance.csv") %>%
   clean_names() %>%
-  left_join(dashboard_info, by = join_by(cds, studentgroup)) %>%
-  filter(countyname == "Solano", assistance != "*")
+  left_join(dashboard_info, by = join_by(cds, studentgroup, charter_flag)) %>%
+  filter(countyname == "Solano", assistance != "*") |>
+  mutate(
+    da_level = case_when(
+      (ec52072b_2025 == "Y" |
+        ec52072_2024 == "Y" |
+        ec52072_2023 == "Y" |
+        ec52072_2022 == "Y") ~ "Direct Technical Assistance",
+      ec52071f_2025 == "Y" ~ "Targeted Differentiated Assistance",
+      TRUE ~ "Differentiated Assistance"
+    )
+  )
 
 ```
 
@@ -37,10 +48,17 @@ assistance <- read_csv("data/assistance.csv") %>%
 assistance_table <-
   assistance %>%
   mutate(leaname = if_else(is.na(charter_flag), districtname, schoolname)) %>%
-  select(countyname, leaname, reportingyear, student_group_long, assistance) %>%
+  select(
+    "Reporting Year" = reportingyear,
+    "County" = countyname,
+    "LEA" = leaname,
+    "DA Level" = da_level,
+    "Student Group" = student_group_long,
+    "Priorities" = assistance
+  ) %>%
   mutate(
     description = case_match(
-      assistance,
+      Priorities,
       "A" ~ "Met Criteria in Priority Areas 4, 5, and 6",
       "B" ~ "Met Criteria in Priority Areas 4 and 5",
       "C" ~ "Met Criteria in Priority Areas 5 and 6",
@@ -54,7 +72,24 @@ assistance_table <-
       "K" ~ "Met Criteria in Priority Areas 4, 5, 6, and 8"
     )
   ) %>%
-  arrange(reportingyear, leaname)
+  arrange(`Reporting Year`, LEA)
+
+leas <-
+  assistance_table |>
+  pull(LEA) |>
+  unique()
+
+for (lea in leas) {
+  lea_file <-
+    lea |>
+    str_remove(":") |>
+    str_replace_all(" ", "_") |>
+    str_to_lower()
+
+  assistance_table |>
+    filter(LEA == lea) |>
+    write.xlsx(paste0("data_output/", lea_file, "_da_assistance_history.xlsx"))
+}
 
 openxlsx::write.xlsx(assistance_table, "data_output/da_assistance_history.xlsx")
 

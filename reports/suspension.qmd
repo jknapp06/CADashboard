@@ -1,100 +1,87 @@
 ---
-title: "Suspension and College/Career"
-subtitle: "Internal Use Only"
-format:
-  docx:
-    fig-dpi: 300
-    fig-width: 7.5
-    reference-doc: scoe-are-report.docx
-editor: visual
-params:
-  lea: Vallejo City Unified
-  year: 2024
+title: "Suspension"
+format: html
 ---
 
-```{r setup}
+```{r}
+#| label: setup
 #| include: false
 
 library(tidyverse)
-library(flextable)
+library(here)
 
-dashboard <- read_csv("data/solano_dashboard.csv")
+dashboard <- read_csv(here("data/ca_dashboard.csv"))
 
-# params <- rmarkdown::yaml_front_matter(rstudioapi::getSourceEditorContext()$path)$params |> lapply(x if (is.list(x)) x$value else x)
-
-```
-
-The following table lists the schools and student groups in **`r params$lea`** where the suspension rate is higher than the college/career indicator rate for the `r params$year` dashboard. For more information on how these two indicators are calculated, refer to these CDE sources: [suspension](https://www.cde.ca.gov/ta/ac/cm/dashboardsusp.asp) and [college/career](https://www.cde.ca.gov/ta/ac/cm/dashboardccr.asp).
-
-```{r suspension_vs_college}
-#| include: false
-
-sus_college <-
+suspension <-
   dashboard |>
-  filter(districtname == params$lea, reportingyear == params$year) |>
+  filter(indicator == "suspension") |>
   select(
     reportingyear,
+    rtype,
+    countyname,
     districtname,
     schoolname,
+    charter_flag,
     student_group_long,
     indicator,
-    currstatus
-  ) |>
-  filter(indicator %in% c("suspension", "college/career")) |>
-  pivot_wider(names_from = indicator, values_from = currstatus)
+    color,
+    currstatus,
+    change,
+    currdenom,
+    currnumer,
+    statuslevel
+  )
+
+solano_suspension <-
+  suspension |>
+  filter(countyname == "Solano")
+
+district_colors <- c(
+  "Benicia Unified" = "#c19b6a",
+  "Dixon Unified" = "#6cc033",
+  "Fairfield-Suisun Unified" = "#44a22b",
+  "Travis Unified" = "#000066",
+  "Vacaville Unified" = "#962c40",
+  "Vallejo City Unified" = "#f7b915",
+  "Solano County Office of Education" = "#8B0000"
+)
 
 ```
 
-```{r sus_cci_table}
+```{r}
+#| label: suspensions_in_solano
 #| echo: false
 
-# include all students for district
+max_year <- max(solano_suspension$reportingyear)
 
-sus_college |>
+solano_suspensions_all_students <-
+  solano_suspension |>
   filter(
-    reportingyear == 2024,
-    suspension > `college/career` |
-      rtype == "D" & student_group_long == "All students"
-  ) |>
-  select(-reportingyear, -districtname) |>
-  mutate(
-    suspension = paste0(suspension, "%"),
-    `college/career` = paste0(`college/career`, "%")
-  ) |>
-  arrange(schoolname, student_group_long) |>
-  flextable() |>
-  merge_v(j = "schoolname") |>
-  set_header_labels(
-    schoolname = "School Name",
-    student_group_long = "Student Group",
-    `college/career` = "College/career status",
-    suspension = "Suspension status"
-  ) |>
-  width(width = c(1.8, 2, 1.2, 1.2)) |>
-  theme_vanilla()
-```
+    is.na(charter_flag),
+    rtype == "D",
+    student_group_long == "All students"
+  )
 
-```{r sus_cci_chart}
-#| include: false
+sus_labels <-
+  solano_suspensions_all_students |>
+  filter(reportingyear == max_year)
 
-sus_college |>
-  filter(
-    student_group_long == "Foster Youth",
-    districtname == "State of California"
-  ) |>
-  pivot_longer(
-    cols = c("suspension", "college/career"),
-    names_to = "indicator",
-    values_to = "currstatus"
-  ) |>
-  ggplot() +
-  geom_line(aes(
+solano_suspensions_all_students |>
+  ggplot(aes(
     x = reportingyear,
-    y = currstatus,
-    color = indicator,
-    group = indicator
+    y = currstatus / 100,
+    color = districtname,
+    group = districtname
   )) +
-  scale_x_continuous(labels = scales::label_date()) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  geom_label(
+    data = sus_labels,
+    aes(label = districtname)
+  ) +
+  scale_color_manual(values = district_colors) +
+  scale_y_continuous(labels = scales::label_percent()) +
+  guides(color = "none") +
   theme_minimal()
 
 ```

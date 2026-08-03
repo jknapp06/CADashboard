@@ -8,7 +8,7 @@ format:
     margin-bottom: 0.75in
     margin-left: 1.2in
     margin-right: 1.2in
-editor: visual
+editor: source
 params:
   year: 2025
   school: "Solano County Community"
@@ -200,7 +200,9 @@ csi_year_th <-
 
 ```
 
-For the `r paste0(params$year, "-", params$year + 1)` school year, `r params$school` has qualified for CSI in the low performance category. **This is the school's `r csi_year_th` consecutive year qualifying for CSI.** The criteria for qualifying is subject to change each year as CDE adjusts the criteria to ensure at least 5% of title I schools statewide qualify. For the `r paste0(params$year, "-", params$year + 1)` school year, the criteria are as follows:
+For the `r paste0(params$year, "-", params$year + 1)` school year, `r params$school` has qualified for CSI in the low performance category. **This is the school's `r csi_year_th` consecutive year qualifying for CSI.** Schools that are identified for comprehensive support and intervention (CSI) that do not meet exit criteria within four years from initial identification will be eligible for more rigorous, or intensive, interventions within the system of support described above. Specifically, the LEA will become eligible for differentiated assistance (Level 2), with the assistance focused particularly on helping the LEA improve in its ability to support its schools in general, and the school that did not meet the exit criteria in particular. 
+
+The criteria for qualifying for CSI in the low performance category is subject to change each year as CDE adjusts the criteria to ensure at least 5% of title I schools statewide qualify. For the `r paste0(params$year, "-", params$year + 1)` school year, the criteria are as follows:
 
 -   Criterion 1: All Red indicators
 -   Criterion 2: All Red indicators except for one indicator of another Performance Color

@@ -1,0 +1,183 @@
+---
+title: "Diffentiated Assistance Preview"
+subtitle: "Solano County 2026"
+format: html
+fig-dpi: 300
+params:
+    county: Solano
+    year: 2024-25
+---
+
+![](images/SCOE_Logo.jpg){width=200 fig-align="left"}
+
+To prepare for the release of the 2025-26 CA State Dashboard (dashboard) in October, this report uses the dashboard results from the last two years to preview which LEAs might be eligible for Differentiated Assistance (DA) following new eligibility requirements.
+
+## Differentiated Assistance Eligibility Criteria
+
+The CA State Board of Education (SBE) has approved new elligability criteria for DA. An LEA will be assigned to DA if at least one student group is assigned red (the lowest performance color) for at least two indicators for the past three years. The criteria specifies that it must be the same student group and the same indicators for all three years. In the case of the English Language Progress Indicator (ELPI), being assigned red or orange (the second lowest performance category) qualifies. As of the 2026-27 academic year, the All Students group is included in DA determination. 
+
+More information can be found in [this presentation](https://docs.google.com/presentation/d/1bv4v_o4OafEnpZ7iD1Lf21KugM9vJPkV/edit?slide=id.p25#slide=id.p25) by the CA Department of Education (CDE) to the SBE. The accepted criteria are included in scenario B. This [memo](https://docs.google.com/document/d/1udqE6zasedfXnueQ2G42lvpNIPpyxsZld2Yjx3gQscg/edit?tab=t.0) from the CA County Superintendents contains additional information about the new eligibility criteria. 
+
+```{r setup}
+#| include: false
+
+library(tidyverse)
+library(pins)
+library(nanoparquet)
+library(gt)
+
+if (interactive()) {
+  params <- rmarkdown::yaml_front_matter(
+    rstudioapi::getSourceEditorContext()$path
+  )$params
+}
+
+
+# Connect to the local pins board
+board <- board_folder(Sys.getenv("CDE_PINS_PATH"))
+
+dashboard <- pin_read(board, "ca_dashboard_full") |> 
+    filter(county_name == params$county)
+
+```
+
+```{r filter_dashboard}
+#| include: false
+slim_dashboard <-
+  dashboard |>
+  filter(rtype == "D" | (charter_flag == "Y" & rtype == "S")) |> # Filter to just LEAs
+  select(
+    academic_year,
+    county_name,
+    district_name,
+    charter_flag,
+    school_name,
+    student_group_long,
+    indicator,
+    currdenom,
+    currstatus,
+    change,
+    color
+  )
+
+subtract_academic_year <- function(academic_year, subtraction) {
+  fall_year <- as.numeric(str_sub(academic_year, 1, 4))
+
+  new_year <-
+    fall_year - subtraction
+
+  new_string <-
+    paste0(new_year, "-", new_year - 1999)
+
+  return(new_string)
+}
+
+last_year <- params$year
+prior_year <- subtract_academic_year(last_year, 1)
+three_years_ago <- subtract_academic_year(last_year, 2)
+
+last_three_dashboard <-
+  slim_dashboard |>
+  filter(academic_year %in% c(last_year, prior_year, three_years_ago)) |> 
+  rename(denom = currdenom, status = currstatus) |>
+  pivot_longer(
+    cols = c(denom, status, change, color),
+    names_to = "indicator_variable",
+    values_to = "indicator_value"
+  ) |>
+  pivot_wider(
+    names_from = c(academic_year, indicator_variable),
+    names_glue = "{indicator_variable}_{str_replace(academic_year, '-', '_')}",
+    values_from = indicator_value
+  )
+
+```
+
+```{r da_eligible}
+#| include: false
+
+last_year_eligible_indicators <- 
+    last_three_dashboard |> 
+    filter(color_2024_25 == 1 | (indicator == "ELPI" & color_2024_25 == 2)) 
+
+last_year_two_indicators <- 
+    last_year_eligible_indicators |> 
+    count(district_name, school_name, student_group_long, name = "indicators") |> 
+    filter(indicators >= 2)
+
+last_year_da_eligible <- 
+    last_year_two_indicators |> 
+    left_join(last_year_eligible_indicators, by = join_by(district_name, school_name, student_group_long))
+
+last_two_eligible_indicators <- 
+    last_three_dashboard |> 
+    filter(color_2024_25 == 1 & color_2023_24 == 1 | 
+    (indicator == "ELPI" & (color_2024_25 %in% c(1, 2)) & (color_2023_24 %in% c(1, 2))))
+
+last_two_two_indicators <- 
+    last_two_eligible_indicators |> 
+    count(district_name, school_name, student_group_long, name = "indicators") |> 
+    filter(indicators >= 2)
+
+last_two_da_eligible <- 
+    last_two_two_indicators |> 
+    left_join(last_two_eligible_indicators, by = join_by(district_name, school_name, student_group_long))
+
+last_three_eligible_indicators <- 
+    last_three_dashboard |> 
+    filter(color_2024_25 == 1 & color_2023_24 == 1 & color_2022_23 == 1 | 
+    (indicator == "ELPI" & (color_2024_25 %in% c(1, 2)) & (color_2023_24 %in% c(1, 2)) & (color_2022_23 %in% c(1, 2))))
+
+last_three_two_indicators <- 
+    last_three_eligible_indicators |> 
+    count(district_name, school_name, student_group_long, name = "indicators") |> 
+    filter(indicators >= 2)
+
+last_three_da_eligible <- 
+    last_three_two_indicators |> 
+    left_join(last_three_eligible_indicators, by = join_by(district_name, school_name, student_group_long))
+
+```
+
+## Two Year Table
+
+The following table lists student groups that have been assigned red for the same indicator on the last *two* CA State Dashboards. **Any group on this list that is assigned red for the same indicator on the 2026 Dashboard will qualify the LEA for DA for the next three academic years beginning with 2026-27.**
+
+While every effort was made to ensure accurate analysis, final determination of DA eligibilty will be conducted by CDE. The information in this report should not be shared outside of Solano County of Education. 
+
+```{r tbl_last_two_eligible}
+#| echo: false
+
+last_two_da_eligible |> 
+    replace_na(list(charter_flag = "A")) |> # So districts show up first in the list
+    arrange(charter_flag, district_name, school_name, student_group_long) |> 
+    select(district_name, school_name, student_group = student_group_long, indicator) |> 
+    gt()|>
+    cols_label_with(
+        fn = ~ .x |> 
+        stringr::str_replace_all("_", " ") |> 
+        stringr::str_to_sentence()
+    )
+
+```
+
+## One year 
+
+CDE recommends that county organizations supporting LEAs prioritize universal support for LEAs who do not meet the three year requirement, but have student groups with red indicators for one or two years. The following table lists student groups with at least two red indicators (or orange for ELPI) in Solano County.
+
+```{r tbl_one_year_eligible}
+#| echo: false
+
+last_year_da_eligible |> 
+    replace_na(list(charter_flag = "A")) |> # So districts show up first in the list
+    arrange(charter_flag, district_name, school_name, student_group_long) |> 
+    select(district_name, school_name, student_group = student_group_long, indicator) |> 
+    gt()|>
+    cols_label_with(
+        fn = ~ .x |> 
+        stringr::str_replace_all("_", " ") |> 
+        stringr::str_to_sentence()
+    )
+
+```
+

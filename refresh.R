@@ -15,6 +15,7 @@
 
 library(tidyverse)
 library(here)
+library(arrow) # Added for Parquet support
 
 options(scipen = 999) # so CDS isn't changed in scientific notation
 
@@ -73,6 +74,18 @@ if (identical(environment(), globalenv()) && interactive()) {
       paste(missing, collapse = ", ")
     )
   }
+
+  # Set all school names to current names from latest year
+  max_year <- max(dashboard_raw$reportingyear, na.rm = TRUE)
+
+  current_names_codes <- dashboard_raw |>
+    filter(reportingyear == max_year) |>
+    select(cds, countyname, districtname, schoolname) |>
+    distinct()
+
+  dashboard_raw <- dashboard_raw |>
+    select(-countyname, -districtname, -schoolname) |>
+    left_join(current_names_codes, by = "cds")
 
   # ---- 3. Read assistance Excel files ----
   # Use load_assistance_xlsx_from_cache() from load-files.R
@@ -227,6 +240,12 @@ if (identical(environment(), globalenv()) && interactive()) {
   dashboard_clean <- dashboard_raw |>
     rename_with(~ str_to_lower(.x)) |>
     mutate(
+      # Some years don't have a student group for ELPI
+      studentgroup = if_else(
+        is.na(studentgroup) & indicator == "ELPI",
+        "EL",
+        studentgroup
+      ),
       student_group_long = case_match(
         studentgroup,
         "ALL" ~ "All students",
@@ -472,29 +491,29 @@ if (identical(environment(), globalenv()) && interactive()) {
       )
     )
 
-  # ---- 9. Write CSV outputs ----
-  message("Writing CSV outputs to: ", out_dir)
-  write_csv(ca_dashboard, here(out_dir, "ca_dashboard.csv"))
-  write_csv(small_dashboard, here(out_dir, "solano_dashboard.csv"))
-  write_csv(assistance, here(out_dir, "assistance.csv"))
-  write_csv(essa, here(out_dir, "essa.csv"))
-  write_csv(dashboard_essa, here(out_dir, "dashboard_essa.csv"))
-  write_csv(dashboard_essa, here(app_dir, "dashboard_essa.csv"))
-  write_csv(dashboard_essa, file.path(are_dir, "dashboard_essa.csv"))
-  write_csv(
+  # ---- 9. Write Parquet outputs ----
+  message("Writing Parquet outputs to: ", out_dir)
+  write_parquet(ca_dashboard, here(out_dir, "ca_dashboard.parquet"))
+  write_parquet(small_dashboard, here(out_dir, "solano_dashboard.parquet"))
+  write_parquet(assistance, here(out_dir, "assistance.parquet"))
+  write_parquet(essa, here(out_dir, "essa.parquet"))
+  write_parquet(dashboard_essa, here(out_dir, "dashboard_essa.parquet"))
+  write_parquet(dashboard_essa, here(app_dir, "dashboard_essa.parquet"))
+  write_parquet(dashboard_essa, file.path(are_dir, "dashboard_essa.parquet"))
+  write_parquet(
     teacher_assignments_clean,
-    here(out_dir, "teacher_assignments.csv")
+    here(out_dir, "teacher_assignments.parquet")
   )
-  write_csv(
+  write_parquet(
     solano_teachers,
-    here(app_dir, "teacher_assignments.csv")
+    here(app_dir, "teacher_assignments.parquet")
   )
-  write_csv(
+  write_parquet(
     solano_teachers,
-    file.path(are_dir, "teacher_assignments_2025.csv")
+    file.path(are_dir, "teacher_assignments_2025.parquet")
   )
 
-  # ---- 9. Populate DuckDB ----
+  # ---- 10. Populate DuckDB ----
   # message("Populating DuckDB at: ", db_path)
   # con <- connect_duckdb(db_path = db_path)
   # on.exit(

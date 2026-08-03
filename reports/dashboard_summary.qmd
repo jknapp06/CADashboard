@@ -6,29 +6,43 @@ format:
   pptx:
     reference-doc: ../template.pptx
     logo: ../www/SCOE_Logo.jpg
-editor: visual
+editor: source
 ---
 
 ```{r setup, include = FALSE}
 library(tidyverse)
 library(flextable)
 library(ggtext)
-library(leaflet)
+library(leaflet) # Warning: highly unstable for pptx output
 library(sf)
 library(webshot)
 library(officer)
 library(fontawesome)
 library(showtext)
+library(pins)
+library(here)
+library(janitor)
 
-# webshot::install_phantomjs()
+if (interactive()) {
+  params <- rmarkdown::yaml_front_matter(
+    rstudioapi::getSourceEditorContext()$path
+  )$params
+}
 
 current_year <- 2025
 
-dashboard <- read_csv("../data/solano_dashboard.csv") |>
-  filter(countyname == "Solano", reportingyear == current_year) |>
+# Connect to the local pins board
+board <- board_folder("C:/Users/JKnapp/OneDrive - Solano County Office of Education/cde_data_pipeline/data/pins")
+
+# Read pins (replace 'solano_dashboard', 'district_geo', 'school_geo' with actual pin names if different)
+dashboard_raw <- pin_read(board, "solano_dashboard")
+district_geo_raw <- read_sf(here("data/Solano_School_District_Areas_2024-25.geojson"))
+school_geo_raw <- read_sf(here("data/Solano_SchoolSites2425.geojson"))
+
+dashboard <- dashboard_raw |>
+  filter(county_name == "Solano", reporting_year == current_year) |>
   mutate(
-    color = as_factor(color),
-    color = fct_relevel(color, "0", "1", "2", "3", "4", "5"),
+    color = fct_relevel(as_factor(color), "0", "1", "2", "3", "4", "5"),
     indicator_color = case_when(
       rtype == "S" & color == 0 ~ "#D3D3D3",
       rtype == "S" & color == 1 ~ "#FF6347",
@@ -43,12 +57,12 @@ dashboard <- read_csv("../data/solano_dashboard.csv") |>
       rtype == "D" & color == 5 ~ "#87CEFA",
       .default = "#737373"
     ),
-    leaname = if_else(is.na(charter_flag), districtname, schoolname),
-    change = if_else(is.na(change), "", paste(change)),
+    leaname = if_else(is.na(charter_flag), district_name, school_name),
+    change = replace_na(as.character(change), ""),
     change_arrow = if_else(
       indicator %in% c("ELA", "Math", "ELPI", "graduation", "college/career"),
       case_match(
-        changelevel, # improvement means up
+        change_level, 
         0 ~ "<span style='font-family:fa-solid;'>&#xf068;</span>",
         1 ~ "<span style='font-family:fa-solid;'>&#xf063;</span>",
         2 ~ "<span style='font-family:fa-solid;'>&#xf078;</span>",
@@ -58,7 +72,7 @@ dashboard <- read_csv("../data/solano_dashboard.csv") |>
         .default = "<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>"
       ),
       case_match(
-        changelevel, # improvement means down
+        change_level, 
         0 ~ "<span style='font-family:fa-solid;'>&#xf068;</span>",
         5 ~ "<span style='font-family:fa-solid;'>&#xf063;</span>",
         4 ~ "<span style='font-family:fa-solid;'>&#xf078;</span>",
@@ -70,115 +84,102 @@ dashboard <- read_csv("../data/solano_dashboard.csv") |>
     ),
     indicator = fct_relevel(
       as_factor(indicator),
-      "ELA",
-      "Math",
-      "ELPI",
-      "absenteeism",
-      "graduation",
-      "suspension",
-      "college/career",
-      "science"
-    ),
-    leaname = fct_relevel(
-      as_factor(leaname),
-      "Solano County Office of Education",
-      "Benicia Unified",
-      "Dixon Unified",
-      "Fairfield-Suisun Unified",
-      "Travis Unified",
-      "Vacaville Unified",
-      "Vallejo City Unified",
-      "Buckingham Collegiate Charter Academy",
-      "Caliber: ChangeMakers Academy",
-      "Elite Public",
-      "Ernest Kimme Charter Academy",
-      "Dixon Montessori Charter",
-      "Fairmont Charter Elementary",
-      "Griffin Academy High",
-      "Kairos Public",
-      "Mare Island Technology Academy",
-      "MIT Academy",
-      "MIT Griffin Academy Middle",
-      "Vallejo Charter"
-    ),
-    lea_anonymous = case_match(
-      leaname,
-      "Solano County Office of Education" ~ "District A",
-      "Benicia Unified" ~ "District B",
-      "Dixon Unified" ~ "District C",
-      "Fairfield-Suisun Unified" ~ "District D",
-      "Travis Unified" ~ "District E",
-      "Vacaville Unified" ~ "District F",
-      "Vallejo City Unified" ~ "District G",
-      "Buckingham Collegiate Charter Academy" ~ "Charter A",
-      "Caliber: ChangeMakers Academy" ~ "Charter B",
-      "Elite Public" ~ "Charter C",
-      "Ernest Kimme Charter Academy" ~ "Charter D",
-      "Dixon Montessori Charter" ~ "Charter E",
-      "Fairmont Charter Elementary" ~ "Charter F",
-      "Griffin Academy High" ~ "Charter G",
-      "Kairos Public" ~ "Charter H",
-      "Mare Island Technology Academy" ~ "Charter I",
-      "MIT Academy" ~ "Charter J",
-      "MIT Griffin Academy Middle" ~ "Charter K",
-      "Vallejo Charter" ~ "Charter L"
+      "ELA", "Math", "ELPI", "absenteeism", "graduation", "suspension", "college/career", "science"
     )
-  )
+  ) |>
+  # Future-Proofed Anonymization 
+  mutate(
+    org_type = if_else(charter_flag == "Y", "Charter", "District", missing = "District")
+  ) |>
+  group_by(org_type) |>
+  mutate(
+    # Force SCOE to rank 0 so it's always 'A', sort everything else alphabetically
+    sort_rank = if_else(leaname == "Solano County Office of Education", 0, dense_rank(leaname)),
+    # Re-rank to ensure continuous 1, 2, 3...
+    final_rank = dense_rank(sort_rank), 
+    lea_anonymous = paste(org_type, LETTERS[final_rank])
+  ) |>
+  ungroup() |>
+  # Optionally order leaname factor by its new anonymous ranking to keep plots clean
+  mutate(
+    leaname = fct_reorder(as_factor(leaname), final_rank)
+  ) |>
+  select(-sort_rank, -final_rank) # clean up temp columns
 
-district_geo <- read_sf("../data/Solano_School_District_Areas_2024-25.geojson")
-school_geo <- read_sf("../data/Solano_SchoolSites2425.geojson")
-
-district_geo <-
-  district_geo |>
+district_geo <- district_geo_raw |>
   filter(CountyName == "Solano") |>
-  rename_with(str_to_lower) |>
-  rename(cds = cdscode) |>
+  clean_names() |>
+  rename(cds = cds_code) |> 
   mutate(
     center_point = st_centroid(geometry),
     lng = st_coordinates(center_point)[, 1],
     lat = st_coordinates(center_point)[, 2]
   )
 
-school_geo <-
-  school_geo |>
+school_geo <- school_geo_raw |>
   filter(CountyName == "Solano") |>
-  rename_with(str_to_lower) |>
-  rename(cds = cdscode)
+  clean_names() |>
+  rename(cds = cds_code)
 
-race_ethnicity_groups = c(
-  "Black/African American",
-  "All students",
-  "Filipino",
-  "Hispanic",
-  "Multiple Races/Two or more",
-  "White",
-  "American Indian or Alaska Native",
-  "Asian",
-  "Pacific Islander"
+race_ethnicity_groups <- c(
+  "Black/African American", "All students", "Filipino", "Hispanic",
+  "Multiple Races/Two or more", "White", "American Indian or Alaska Native",
+  "Asian", "Pacific Islander"
 )
 
-student_program_groups = c(
-  "All students",
-  "English Learner",
-  "Foster Youth",
-  "Homeless Youth",
-  "Long-Term English Learner",
-  "Socioeconomically Disadvantaged",
+student_program_groups <- c(
+  "All students", "English Learner", "Foster Youth", "Homeless Youth",
+  "Long-Term English Learner", "Socioeconomically Disadvantaged",
   "Students with Disabilities"
 )
 
-status_colors <- c(
-  "grey",
-  "tomato",
-  "orange",
-  "yellow",
-  "mediumseagreen",
-  "dodgerblue"
-)
-
+status_colors <- c("grey", "tomato", "orange", "yellow", "mediumseagreen", "dodgerblue")
 colors_only <- c("tomato", "orange", "yellow", "mediumseagreen", "dodgerblue")
 
-font_add('fa-solid', '../fonts/fa-solid-900.ttf')
+font_add('fa-solid', here('fonts/fa-solid-900.ttf'))
+
+plot_dashboard_grid <- function(df, 
+                                y_facet_col, 
+                                box_text_size = 3.3, 
+                                box_label_size = 0.8,
+                                base_font_size = 12, 
+                                strip_font_size = 11,
+                                status_colors = c("grey", "tomato", "orange", "yellow", "mediumseagreen", "dodgerblue")) {
+  
+  ggplot(df) +
+    geom_richtext(
+      x = 0.5,
+      y = 0.5,
+      mapping = aes(
+        label = if_else(
+          indicator %in% c("ELA", "Math", "science"),
+          paste(currstatus, change_arrow, change),
+          paste0(currstatus, "% ", change_arrow, " ", change)
+        ),
+        fill = color
+      ),
+      show.legend = FALSE,
+      text.color = "black",
+      color = "darkgrey",
+      label.size = box_label_size,
+      size = box_text_size
+    ) +
+    scale_fill_manual(values = status_colors, drop = FALSE, na.value = "white") +
+    # Use vars() and {{ }} for unquoted variables in modern facet_grid
+    facet_grid(rows = vars({{ y_facet_col }}), cols = vars(indicator), scales = "free", space = "free") +
+    theme_minimal(base_size = base_font_size) +
+    theme(
+      strip.text.x = element_text(size = strip_font_size),
+      strip.text.y = element_markdown(
+        size = strip_font_size,
+        angle = 0,
+        vjust = 0.7,
+        hjust = 0
+      ),
+      strip.clip = "off",
+      panel.spacing = unit(0, "pt")
+    )
+}
 
 ```
 
@@ -196,10 +197,10 @@ font_add('fa-solid', '../fonts/fa-solid-900.ttf')
 
 dashboard |>
   filter(rtype == "D") |>
-  group_by(districtname) |>
+  group_by(district_name) |>
   count(color) |>
   pivot_wider(names_from = color, values_from = n, values_fill = 0) |>
-  select(districtname, `0`, `1`, `2`, `3`, `4`, `5`) |>
+  select(district_name, `0`, `1`, `2`, `3`, `4`, `5`) |>
   flextable() |>
   fontsize(size = 8, part = "all") |>
   add_header_row(colwidths = c(1, 6), values = c("", "Performance Colors")) |>
@@ -211,7 +212,7 @@ dashboard |>
   bg(bg = "mediumseagreen", part = "all", j = "4") |>
   bg(bg = "dodgerblue", part = "all", j = "5") |>
   set_header_labels(
-    districtname = "District",
+    district_name = "District",
     '0' = "No color",
     '1' = "Red (lowest performance)",
     '2' = "Orange",
@@ -231,10 +232,10 @@ dashboard |>
 
 dashboard |>
   filter(charter_flag == "Y") |>
-  group_by(schoolname) |>
+  group_by(school_name) |>
   count(color) |>
   pivot_wider(names_from = color, values_from = n, values_fill = 0) |>
-  select(schoolname, `0`, `1`, `2`, `3`, `4`, `5`) |>
+  select(school_name, `0`, `1`, `2`, `3`, `4`, `5`) |>
   flextable() |>
   fontsize(size = 8, part = "all") |>
   add_header_row(colwidths = c(1, 6), values = c("", "Performance Colors")) |>
@@ -246,7 +247,7 @@ dashboard |>
   bg(bg = "mediumseagreen", part = "all", j = "4") |>
   bg(bg = "dodgerblue", part = "all", j = "5") |>
   set_header_labels(
-    schoolname = "Charter",
+    school_name = "Charter",
     '0' = "No color",
     '1' = "Red (lowest performance)",
     '2' = "Orange",
@@ -381,7 +382,7 @@ academic_districts <-
     student_group_long == "All students",
     indicator == "ELA"
   ) |>
-  left_join(district_geo, by = join_by(cds, districtname, countyname)) |>
+  left_join(district_geo, by = join_by(cds, district_name, county_name)) |>
   st_as_sf()
 
 academic_schools <-
@@ -393,7 +394,7 @@ academic_schools <-
   ) |>
   left_join(
     school_geo,
-    by = join_by(cds, districtname, countyname, schoolname)
+    by = join_by(cds, district_name, county_name, school_name)
   ) |>
   st_as_sf()
 
@@ -409,11 +410,11 @@ leaflet() |>
   # addLabelOnlyMarkers(data = districts_with_colors(),
   #                     lng = ~lng,
   #                     lat = ~lat,
-  #                     label = ~districtname,
+  #                     label = ~district_name,
   #                 labelOptions = labelOptions(permanent = T)) |>
   addCircleMarkers(
     data = academic_schools,
-    label = ~schoolname,
+    label = ~school_name,
     radius = 6,
     stroke = FALSE,
     fillOpacity = 1,
@@ -437,7 +438,7 @@ academic_districts <-
     student_group_long == "All students",
     indicator == "Math"
   ) |>
-  left_join(district_geo, by = join_by(cds, districtname, countyname)) |>
+  left_join(district_geo, by = join_by(cds, district_name, county_name)) |>
   st_as_sf()
 
 academic_schools <-
@@ -449,7 +450,7 @@ academic_schools <-
   ) |>
   left_join(
     school_geo,
-    by = join_by(cds, districtname, countyname, schoolname)
+    by = join_by(cds, district_name, county_name, school_name)
   ) |>
   st_as_sf()
 
@@ -465,11 +466,11 @@ leaflet() |>
   # addLabelOnlyMarkers(data = districts_with_colors(),
   #                     lng = ~lng,
   #                     lat = ~lat,
-  #                     label = ~districtname,
+  #                     label = ~district_name,
   #                 labelOptions = labelOptions(permanent = T)) |>
   addCircleMarkers(
     data = academic_schools,
-    label = ~schoolname,
+    label = ~school_name,
     radius = 6,
     stroke = FALSE,
     fillOpacity = 1,
@@ -493,7 +494,7 @@ academic_districts <-
     student_group_long == "All students",
     indicator == "absenteeism"
   ) |>
-  left_join(district_geo, by = join_by(cds, districtname, countyname)) |>
+  left_join(district_geo, by = join_by(cds, district_name, county_name)) |>
   st_as_sf()
 
 academic_schools <-
@@ -505,7 +506,7 @@ academic_schools <-
   ) |>
   left_join(
     school_geo,
-    by = join_by(cds, districtname, countyname, schoolname)
+    by = join_by(cds, district_name, county_name, school_name)
   ) |>
   st_as_sf()
 
@@ -520,7 +521,7 @@ leaflet() |>
   ) |>
   addCircleMarkers(
     data = academic_schools,
-    label = ~schoolname,
+    label = ~school_name,
     radius = 6,
     stroke = FALSE,
     fillOpacity = 1,
@@ -544,7 +545,7 @@ academic_districts <-
     student_group_long == "All students",
     indicator == "suspension"
   ) |>
-  left_join(district_geo, by = join_by(cds, districtname, countyname)) |>
+  left_join(district_geo, by = join_by(cds, district_name, county_name)) |>
   st_as_sf()
 
 academic_schools <-
@@ -556,7 +557,7 @@ academic_schools <-
   ) |>
   left_join(
     school_geo,
-    by = join_by(cds, districtname, countyname, schoolname)
+    by = join_by(cds, district_name, county_name, school_name)
   ) |>
   st_as_sf()
 
@@ -571,7 +572,7 @@ leaflet() |>
   ) |>
   addCircleMarkers(
     data = academic_schools,
-    label = ~schoolname,
+    label = ~school_name,
     radius = 6,
     stroke = FALSE,
     fillOpacity = 1,
@@ -595,7 +596,7 @@ academic_districts <-
     student_group_long == "All students",
     indicator == "graduation"
   ) |>
-  left_join(district_geo, by = join_by(cds, districtname, countyname)) |>
+  left_join(district_geo, by = join_by(cds, district_name, county_name)) |>
   st_as_sf()
 
 academic_schools <-
@@ -607,7 +608,7 @@ academic_schools <-
   ) |>
   left_join(
     school_geo,
-    by = join_by(cds, districtname, countyname, schoolname)
+    by = join_by(cds, district_name, county_name, school_name)
   ) |>
   st_as_sf()
 
@@ -622,7 +623,7 @@ leaflet() |>
   ) |>
   addCircleMarkers(
     data = academic_schools,
-    label = ~schoolname,
+    label = ~school_name,
     radius = 6,
     stroke = FALSE,
     fillOpacity = 1,
@@ -646,7 +647,7 @@ academic_districts <-
     student_group_long == "All students",
     indicator == "college/career"
   ) |>
-  left_join(district_geo, by = join_by(cds, districtname, countyname)) |>
+  left_join(district_geo, by = join_by(cds, district_name, county_name)) |>
   st_as_sf()
 
 academic_schools <-
@@ -658,7 +659,7 @@ academic_schools <-
   ) |>
   left_join(
     school_geo,
-    by = join_by(cds, districtname, countyname, schoolname)
+    by = join_by(cds, district_name, county_name, school_name)
   ) |>
   st_as_sf()
 
@@ -673,7 +674,7 @@ leaflet() |>
   ) |>
   addCircleMarkers(
     data = academic_schools,
-    label = ~schoolname,
+    label = ~school_name,
     radius = 6,
     stroke = FALSE,
     fillOpacity = 1,
@@ -691,7 +692,7 @@ el_counts <-
   dashboard |>
   filter(
     rtype == "D" | charter_flag == "Y",
-    studentgroup %in% c("ALL", "EL", "LTEL"),
+    student_group %in% c("ALL", "EL", "LTEL"),
     indicator == "suspension"
   ) |>
   select(leaname, student_group_long, currdenom, rtype) |>
@@ -785,41 +786,10 @@ dashboard |>
     rtype == "D" | (rtype == "S" & charter_flag == "Y")
   ) |>
   arrange(rtype) |>
-  ggplot() +
-  geom_richtext(
-    x = 0.5,
-    y = 0.5,
-    mapping = aes(
-      label = if_else(
-        indicator %in% c("ELA", "Math", "science"),
-        paste(currstatus, change_arrow, change),
-        paste0(currstatus, "% ", change_arrow, " ", change)
-      ),
-      fill = color
-    ),
-    show.legend = FALSE,
-    text.color = "black",
-    color = "darkgrey",
-    label.size = 0.8,
-    size = 3.3
-  ) +
-  scale_fill_manual(values = status_colors, drop = FALSE, na.value = "white") +
-  facet_grid(leaname ~ indicator, scales = "free", space = "free") +
-  theme_minimal() +
-  theme(
-    text = element_text(size = 12),
-    strip.text.x = element_text(size = 11),
-    strip.text.y = element_markdown(
-      size = 11,
-      angle = 0,
-      vjust = 0.7,
-      hjust = 0
-    ),
-    strip.clip = "off",
-    panel.spacing = unit(0, "pt")
-  )
+  plot_dashboard_grid(y_facet_col = leaname)
 
 showtext_auto(FALSE)
+
 ```
 
 ## `r current_year` Students with disabilities

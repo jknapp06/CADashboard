@@ -6,7 +6,7 @@ format:
     fig-dpi: 300
     fig-width: 7.5
     reference-doc: scoe-are-report.docx
-editor: visual
+editor: source
 ---
 
 ```{r setup}

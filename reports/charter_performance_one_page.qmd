@@ -1,0 +1,546 @@
+---
+format:
+  docx:
+    fig-dpi: 300
+    reference-doc: scoe-are-report-small-tables.docx
+editor: source
+params:
+    year: 2025
+    school: "Elite Public"
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+library(tidyverse)
+library(flextable)
+library(openxlsx)
+library(here)
+
+# Table 1: All Student Group, all indicators.
+# Table 2: Non-excluded students, academic indicators.
+# Table 3: Excluded students, academic indicators.
+
+if (interactive()) {
+  params <- rmarkdown::yaml_front_matter(
+    rstudioapi::getSourceEditorContext()$path
+  )$params
+}
+
+school_printing <- if_else(
+  params$school == "Elite Public",
+  "ELITE Public",
+  params$school
+)
+
+dashboard <- read_csv(here("data/ca_dashboard.csv")) |>
+  filter(
+    countyname == "Solano" |
+      rtype == "X"
+  ) |>
+  mutate(
+    statuslevel = as_factor(statuslevel),
+    # reportingyear = fct_relevel(as_factor(reportingyear), "2019"),
+    indicator = as_factor(indicator),
+    studentgroup = as_factor(studentgroup),
+    student_group_long = fct_relevel(
+      as_factor(student_group_long),
+      "All students",
+      "American Indian or Alaska Native",
+      "Asian",
+      "Black/African American",
+      "Filipino",
+      "Hispanic",
+      "Pacific Islander",
+      "White",
+      "Multiple Races/Two or more",
+      "Socioeconomically Disadvantaged",
+      "Homeless Youth",
+      "Students with Disabilities",
+      "Foster Youth",
+      "English Learner",
+      "Long-Term English Learner",
+      "English Learners Only",
+      "RFEPs Only",
+      "English Only",
+      "Smarter Balanced Assessment",
+      "CA Alternative Assessment"
+    ),
+    charter_flag = if_else(is.na(charter_flag), "N", charter_flag),
+    color = as_factor(case_match(
+      color,
+      0 ~ "No color",
+      1 ~ "Red",
+      2 ~ "Orange",
+      3 ~ "Yellow",
+      4 ~ "Green",
+      5 ~ "Blue"
+    )),
+    lea = if_else(charter_flag == "Y", schoolname, districtname)
+  )
+
+status_colors <- c(
+  "lightgrey",
+  "tomato",
+  "orange",
+  "yellow",
+  "mediumseagreen",
+  "dodgerblue",
+  "darkgrey"
+)
+
+# charter_performance_25 <- read.xlsx(
+#   here("data/Charter Performance 2026.xlsx"),
+#   sheet = 1,
+#   startRow = 4
+# ) |>
+#   mutate(year = 2025)
+
+# charter_performance_24 <- read.xlsx(
+#   "https://www.cde.ca.gov/sp/ch/documents/perfcat25.xlsx",
+#   sheet = 1,
+#   startRow = 4
+# ) |>
+#   mutate(year = 2024)
+
+# charter_performance_23 <- read.xlsx(
+#   "https://www.cde.ca.gov/sp/ch/documents/perfcat24.xlsx",
+#   sheet = 1,
+#   startRow = 4
+# ) |>
+#   mutate(year = 2023)
+
+# charter_performance_19 <- read.xlsx(
+#   "https://www.cde.ca.gov/sp/ch/documents/ab1505results2020.xlsx",
+#   sheet = 1,
+#   startRow = 4
+# ) |>
+#   mutate(year = 2019)
+
+# charter_performance <- bind_rows(
+#   charter_performance_25,
+#   charter_performance_24,
+#   charter_performance_23,
+#   charter_performance_19
+# )
+
+# write_csv(
+#   charter_performance,
+#   here("data/charter_performance.csv")
+# )
+
+charter_performance <- read_csv(here("data/charter_performance.csv")) |>
+  mutate(
+    Performance_Level = as_factor(Performance_Level)
+  ) |>
+  mutate(
+    Performance_Level = fct_relevel(
+      Performance_Level,
+      "Low Performing",
+      "Middle Performing",
+      "High Performing"
+    )
+  )
+
+year <- max(charter_performance$year)
+
+charter_info <- read.xlsx(
+  here("data/chexpirations092625.xlsx"),
+  sheet = 1,
+  startRow = 3
+) |>
+  janitor::clean_names() |>
+  mutate(cds = str_remove_all(county_district_school_code, "-"))
+
+always_exclude <- c(
+  "All students",
+  "Smarter Balanced Assessment",
+  "CA Alternative Assessment",
+  "English Learners Only",
+  "English Only",
+  "RFEPs Only",
+  "CAST"
+)
+
+exclude_groups <- c(
+  "Asian",
+  "Filipino",
+  "White",
+  "Multiple Races/Two or more"
+)
+academic_indicators <- c("ELA", "Math", "ELPI", "science", "college/career")
+
+```
+
+# `r school_printing` Charter Performance Report `r year`
+
+For 2025, `r school_printing` was determined to be low performing by the CA Department of Education (CDE) in their annual charter performance level report. `r school_printing` was determined to be low performing based on criterion 2 which is limited to academic indicators (ELA, Mathematics, CCI, ELPI, and Science) with a color on the 2025 CA Dashboard. This report details the dashboard results relevant to CDE's determination with some additional information included for added context.
+
+## CA State Dashboard Results
+
+```{r lea_table}
+#| echo: false
+
+indicator_summaries <-
+  dashboard |>
+  select(
+    rtype,
+    reportingyear,
+    countyname,
+    districtname,
+    schoolname,
+    charter_flag,
+    student_group_long,
+    indicator,
+    currstatus,
+    change,
+    color
+  ) |>
+  mutate(
+    # narative = case_match(
+    #   indicator,
+    #   "ELA" ~ paste0(
+    #     abs(currstatus),
+    #     if_else(currstatus < 0, " points below", " points above"),
+    #     " standard in ELA. (",
+    #     if_else(change < 0, "decreased ", "increased "),
+    #     abs(change),
+    #     " points)"
+    #   ),
+    #   "Math" ~ paste0(
+    #     abs(currstatus),
+    #     if_else(currstatus < 0, " points below", " points above"),
+    #     " standard in Math. (",
+    #     if_else(change < 0, "decreased ", "increased "),
+    #     abs(change),
+    #     " points)"
+    #   ),
+    #   "absenteeism" ~ paste0(
+    #     currstatus,
+    #     "% chronically absent (",
+    #     if_else(change < 0, "decreased ", "increased "),
+    #     abs(change),
+    #     "%)"
+    #   ),
+    #   "suspension" ~ paste0(
+    #     currstatus,
+    #     "% suspended at least one day (",
+    #     if_else(change < 0, "decreased ", "increased "),
+    #     abs(change),
+    #     "%)"
+    #   ),
+    #   "graduation" ~ paste0(
+    #     currstatus,
+    #     "% graduated (",
+    #     if_else(change < 0, "decreased ", "increased "),
+    #     abs(change),
+    #     "%)"
+    #   ),
+    #   "college/career" ~ paste0(
+    #     currstatus,
+    #     "% prepared (",
+    #     if_else(change < 0, "decreased ", "increased "),
+    #     abs(change),
+    #     "%)"
+    #   ),
+    #   "science" ~ paste0(
+    #     currstatus,
+    #     " science points (",
+    #     if_else(change < 0, "decreased ", "increased "),
+    #     abs(change),
+    #     " points)"
+    #   ),
+    #   .default = "No data available"
+    # ),
+    status = case_when(
+      is.na(currstatus) ~ "",
+      indicator %in%
+        c(
+          "absenteeism",
+          "graduation",
+          "college/career",
+          "suspension",
+          "ELPI"
+        ) ~ paste0(currstatus, "%"),
+      .default = as.character(currstatus)
+    ),
+    color_hex = case_match(
+      color,
+      "Red" ~ "#ffa0a0ff",
+      "Orange" ~ "#fdd5a1ff",
+      "Yellow" ~ "#ffff9fff",
+      "Green" ~ "#aae4a8ff",
+      "Blue" ~ "#99bdffff",
+      "No color" ~ "#ccccccff",
+      .default = "#FFFFFF"
+    ),
+    indicator_long = case_match(
+      indicator,
+      "ELA" ~ "English Language Arts (ELA)",
+      "Math" ~ "Mathematics",
+      "absenteeism" ~ "Chronic Absenteeism",
+      "suspension" ~ "Suspension Rate",
+      "graduation" ~ "Graduation Rate",
+      "college/career" ~ "College/Career Readiness (CCI)",
+      "science" ~ "Science",
+      "ELPI" ~ "English Learner Progress Indicator"
+    )
+  )
+
+```
+
+The following table shows the CA State Dashboard results for all students at `r school_printing` for the past four years. 
+
+The numbers represent the status for each indicator for all students. For ELA and math, the status is the average distance from standard. Status for the science indicator was its own distance from standard calculation in 2024, but for the 2025 dashboard, the status switched to a calculation that shifts the values so they fall between 0 and 100. This new calculation is referred to as science points. All other indicators are based on a percentage of all students who meet the criteria for that indicator. Refer to the CA State Dashboard technical guide for details on how those criteria are calculated.
+
+The background shading of each cell represents the dashboard color for that indicator. Color is based on the displayed status and also the change in status from the year before. Gray indicates that no color was calculated for that indicator because there were too few students to meet CDE privacy guidelines for data reporting in one of the two years used to calculate color. A white cell indicates that no color was assigned for that indicator that year.
+
+### `r school_printing` Results for State Indicators
+
+```{r}
+#| label: 2025_dashboard_table
+#| echo: false
+
+# 1. Prepare pivoted data
+charter_summaries <- indicator_summaries |>
+  filter(
+    schoolname == params$school,
+    reportingyear %in% c(2022, 2023, 2024, 2025),
+    student_group_long == "All students" |
+      (indicator == "ELPI" & student_group_long == "English Learner")
+  ) |>
+  select(reportingyear, indicator_long, status, color_hex) |>
+  pivot_wider(
+    names_from = reportingyear,
+    values_from = c(status, color_hex),
+    names_sep = "_"
+  )
+
+# 2. Build flextable with targeted coloring
+charter_summaries |>
+  select(
+    indicator_long,
+    status_2022,
+    status_2023,
+    status_2024,
+    status_2025,
+    color_hex_2022,
+    color_hex_2023,
+    color_hex_2024,
+    color_hex_2025
+  ) |>
+  flextable() |>
+  theme_vanilla() |>
+  # Color the 2022 Status column using the 2022 Color column
+  bg(
+    j = "status_2022",
+    bg = charter_summaries$`color_hex_2022`,
+    part = "body"
+  ) |>
+  # Color the 2023 Status column using the 2023 Color column
+  bg(
+    j = "status_2023",
+    bg = charter_summaries$`color_hex_2023`,
+    part = "body"
+  ) |>
+  # Color the 2024 Status column using the 2024 Color column
+  bg(
+    j = "status_2024",
+    bg = charter_summaries$`color_hex_2024`,
+    part = "body"
+  ) |>
+  # Color the 2025 Status column using the 2025 Color column
+  bg(
+    j = "status_2025",
+    bg = charter_summaries$`color_hex_2025`,
+    part = "body"
+  ) |>
+  # Remove both color helper columns
+  delete_columns(
+    j = c(
+      "color_hex_2022",
+      "color_hex_2023",
+      "color_hex_2024",
+      "color_hex_2025"
+    )
+  ) |>
+  set_header_labels(
+    indicator_long = "CA State Dashboard Indicator",
+    `status_2022` = "2022 Status",
+    `status_2023` = "2023 Status",
+    `status_2024` = "2024 Status",
+    `status_2025` = "2025 Status"
+  ) |>
+  width(width = c(2.5, 1, 1, 1, 1)) |>
+  fontsize(size = 10, part = "body") |>
+  theme_vanilla()
+
+```
+
+When CDE determines performance levels for charter schools, they exclude the student groups that performed higher or at the same level as the state averages. For 2025, these groups were: White, Asian, Filipino, Two or more Races. The following table shows the CA Dashboard results for `r school_printing` student groups with a status excluding the student groups excluded by CDE.
+
+In 2025, `r school_printing` was determed to be low performing based on criterion 2. This criterion is based on academic indicators (ELA, Math, CCI, ELPI, and science). Therefore, this table only shows results for those indicators. 
+
+The numbers in the table show the status of included student groups for each indicator for the past two years. A cell without a number indicates the student group's status was not reported for that indicator that year. Student groups with too few students to meet CDE's privacy guidelines for reporting status for both years were excluded from this table. 
+
+The background shading of each cell represents the dashboard color earned for each indicator. Gray indicates there were enough students to show the status, but color was not calculated for that indicator because there were too few students to meet CDE's criteria for color for at least one of the two years. A white cell indicates that no color was assigned for that indicator that year. CDE uses only student groups with a color in determining charter performance categories, but groups with a status and without a color are included in this table for awareness as those groups may be considered next year.
+
+### `r school_printing` Results by Student Group
+
+```{r}
+#| label: multi-year_dashboard_table
+#| echo: false
+
+# 1. Prepare pivoted data
+charter_summaries_groups <- indicator_summaries |>
+  drop_na(currstatus, student_group_long) |>
+  filter(
+    schoolname == params$school,
+    reportingyear %in% c("2024", "2025"),
+    !student_group_long %in% c(exclude_groups, always_exclude),
+    indicator %in% academic_indicators
+  ) |>
+  select(
+    student_group_long,
+    reportingyear,
+    indicator_long,
+    status,
+    color_hex
+  ) |>
+  pivot_wider(
+    names_from = reportingyear,
+    values_from = c(status, color_hex),
+    names_sep = "_"
+  ) |>
+  arrange(student_group_long, indicator_long)
+
+# 2. Build flextable with targeted coloring
+charter_summaries_groups |>
+  select(
+    student_group_long,
+    indicator_long,
+    # status_2023,
+    status_2024,
+    status_2025,
+    # color_hex_2023,
+    color_hex_2024,
+    color_hex_2025
+  ) |>
+  flextable() |>
+  theme_vanilla() |>
+  # # Color the 2023 Status column using the 2023 Color column
+  # bg(
+  #   j = "status_2023",
+  #   bg = charter_summaries_groups$`color_hex_2023`,
+  #   part = "body"
+  # ) |>
+  # Color the 2024 Status column using the 2024 Color column
+  bg(
+    j = "status_2024",
+    bg = charter_summaries_groups$`color_hex_2024`,
+    part = "body"
+  ) |>
+  # Color the 2025 Status column using the 2025 Color column
+  bg(
+    j = "status_2025",
+    bg = charter_summaries_groups$`color_hex_2025`,
+    part = "body"
+  ) |>
+  # Remove both color helper columns
+  delete_columns(j = c("color_hex_2024", "color_hex_2025")) |>
+  set_header_labels(
+    student_group_long = "Student Group",
+    indicator_long = "CA State Dashboard Indicator",
+    # `status_2023` = "2023 Status",
+    `status_2024` = "2024 Status",
+    `status_2025` = "2025 Status"
+  ) |>
+  width(width = c(1.5, 2.5, 1, 1)) |>
+  merge_v(j = 1) |>
+  fontsize(size = 10, part = "body") |>
+  theme_vanilla()
+
+```
+
+Several student groups performed higher in 2025 than the CA state averages and were excluded from CDE's evaluation of charter performance levels. Those groups were: White, Asian, Filipino, Two or more Races. Of these groups, the only group large enough at `r school_printing` for CDE to report a status was Two or More Races. The academic results with statuses for that group are shown in the following table.
+
+### `r school_printing` Excluded Groups
+
+```{r}
+#| label: excluded_groups
+#| echo: false
+
+# 1. Prepare pivoted data
+charter_summaries_groups <- indicator_summaries |>
+  filter(
+    schoolname == params$school,
+    reportingyear %in% c("2024", "2025"),
+    student_group_long %in% exclude_groups,
+    indicator %in% academic_indicators
+  ) |>
+  select(
+    student_group_long,
+    reportingyear,
+    indicator_long,
+    status,
+    color_hex
+  ) |>
+  pivot_wider(
+    names_from = reportingyear,
+    values_from = c(status, color_hex),
+    names_sep = "_"
+  ) |>
+  drop_na(status_2025) |>
+  filter(status_2025 != "") |>
+  arrange(student_group_long, indicator_long)
+
+# 2. Build flextable with targeted coloring
+charter_summaries_groups |>
+  select(
+    student_group_long,
+    indicator_long,
+    # status_2023,
+    status_2024,
+    status_2025,
+    # color_hex_2023,
+    color_hex_2024,
+    color_hex_2025
+  ) |>
+  flextable() |>
+  theme_vanilla() |>
+  # # Color the 2023 Status column using the 2023 Color column
+  # bg(
+  #   j = "status_2023",
+  #   bg = charter_summaries_groups$`color_hex_2023`,
+  #   part = "body"
+  # ) |>
+  # Color the 2024 Status column using the 2024 Color column
+  bg(
+    j = "status_2024",
+    bg = charter_summaries_groups$`color_hex_2024`,
+    part = "body"
+  ) |>
+  # Color the 2025 Status column using the 2025 Color column
+  bg(
+    j = "status_2025",
+    bg = charter_summaries_groups$`color_hex_2025`,
+    part = "body"
+  ) |>
+  # Remove both color helper columns
+  delete_columns(j = c("color_hex_2024", "color_hex_2025")) |>
+  set_header_labels(
+    student_group_long = "Student Group",
+    indicator_long = "CA State Dashboard Indicator",
+    # `status_2023` = "2023 Status",
+    `status_2024` = "2024 Status",
+    `status_2025` = "2025 Status"
+  ) |>
+  width(width = c(1.5, 2.5, 1, 1)) |>
+  merge_v(j = 1) |>
+  fontsize(size = 10, part = "body") |>
+  theme_vanilla()
+
+```
+
+Report prepared by Solano County Office of Education Assessment Research and Evaluation team. Email Dr. Tacey Rodgers trodgers\@solanocoe.net and Joseph Knapp jknapp\@solanocoe.net with any questions.
